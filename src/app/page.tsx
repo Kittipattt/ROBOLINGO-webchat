@@ -29,6 +29,12 @@ export default function WebChatPage() {
   const lastMessageCountRef = useRef<number>(0);
 
   const selectedUserId = selectedUser?.userId;
+  const selectedUserIdRef = useRef<string | undefined>(selectedUserId);
+  const lastReadTimestampRef = useRef<Record<string, number>>({});
+
+  useEffect(() => {
+    selectedUserIdRef.current = selectedUserId;
+  }, [selectedUserId]);
 
   // Active messages strictly filtered for the selected user
   const activeMessages = useMemo(() => {
@@ -88,6 +94,8 @@ export default function WebChatPage() {
           setUsers((prev) => {
             const map = new Map<string, LineUser>();
             prev.forEach((u) => map.set(u.userId, u));
+            const activeId = selectedUserIdRef.current;
+
             incoming.forEach((u) => {
               const existing = map.get(u.userId);
 
@@ -112,17 +120,31 @@ export default function WebChatPage() {
               }
 
               // Unread count tracking:
-              // If user is currently active/open, keep unreadCount at 0.
-              // Otherwise, adopt incoming unreadCount or increment if a newer message arrived.
-              const isCurrentActive = selectedUserId === u.userId;
+              // 1. If user is currently active/open, keep unreadCount at 0.
+              // 2. If message timestamp <= lastReadTimestamp, user has already read it -> unreadCount = 0.
+              // 3. Only if a genuinely newer message arrived (msgTimestamp > lastReadTimestamp) and user is NOT active, mark unread.
+              const isCurrentActive = activeId === u.userId;
+              const userLastReadAt = lastReadTimestampRef.current[u.userId] || 0;
+              const msgTimestamp = bestLastMessageAt || u.lastMessageAt || 0;
+
               let bestUnreadCount = 0;
-              if (!isCurrentActive) {
-                if (existing && (u.lastMessageAt || 0) > (existing.lastMessageAt || 0)) {
+              if (isCurrentActive) {
+                bestUnreadCount = 0;
+                lastReadTimestampRef.current[u.userId] = Math.max(userLastReadAt, msgTimestamp, Date.now());
+                try {
+                  localStorage.setItem('webchat_last_read_map', JSON.stringify(lastReadTimestampRef.current));
+                } catch {}
+              } else if (msgTimestamp > userLastReadAt) {
+                if (existing && msgTimestamp > (existing.lastMessageAt || 0)) {
                   bestUnreadCount = Math.max(u.unreadCount || 1, (existing.unreadCount || 0) + 1);
                 } else {
                   bestUnreadCount =
-                    u.unreadCount !== undefined ? u.unreadCount : existing?.unreadCount || 0;
+                    u.unreadCount !== undefined && u.unreadCount > 0
+                      ? u.unreadCount
+                      : existing?.unreadCount || 1;
                 }
+              } else {
+                bestUnreadCount = 0;
               }
 
               map.set(u.userId, {
@@ -198,15 +220,34 @@ export default function WebChatPage() {
               (m: ChatMessage) => m.userId === userId
             );
 
-            // If incoming is empty but we already have messages in UI for this user, do not wipe out!
-            if (incoming.length === 0 && prevForUser.length > 0) {
+            // Read from localStorage to ensure historical messages are never wiped
+            let cachedForUser: ChatMessage[] = [];
+            try {
+              const raw = localStorage.getItem(`webchat_msgs_${userId}`);
+              if (raw) {
+                const parsed = JSON.parse(raw);
+                if (Array.isArray(parsed)) {
+                  cachedForUser = parsed.filter((m: ChatMessage) => m.userId === userId);
+                }
+              }
+            } catch {}
+
+            // If incoming is empty but we have local messages, preserve them
+            if (incoming.length === 0 && (prevForUser.length > 0 || cachedForUser.length > 0)) {
               return prevMap;
             }
 
+            // Merge cached + in-memory + incoming messages
             const map = new Map<string, ChatMessage>();
+            cachedForUser.forEach((m) => map.set(m.id, m));
             prevForUser.forEach((m) => map.set(m.id, m));
             incoming.forEach((m) => map.set(m.id, m));
+
             const merged = Array.from(map.values()).sort((a, b) => a.createdAt - b.createdAt);
+
+            if (merged.length === 0) {
+              return prevMap;
+            }
 
             if (
               lastMessageCountRef.current > 0 &&
@@ -261,6 +302,11 @@ export default function WebChatPage() {
   // Initial load and restoration from local storage
   useEffect(() => {
     try {
+      const savedReadMap = localStorage.getItem('webchat_last_read_map');
+      if (savedReadMap) {
+        lastReadTimestampRef.current = JSON.parse(savedReadMap);
+      }
+
       const cachedUsers = localStorage.getItem('webchat_users_cache');
       if (cachedUsers) {
         const parsed = JSON.parse(cachedUsers);
@@ -268,8 +314,8 @@ export default function WebChatPage() {
           setUsers(parsed);
           setSelectedUser((curr) => curr || parsed[0]);
 
-          // Load & sanitize cached messages for initial user
           const initialId = parsed[0].userId;
+          selectedUserIdRef.current = initialId;
           const cachedMsgs = localStorage.getItem(`webchat_msgs_${initialId}`);
           if (cachedMsgs) {
             const parsedMsgs = JSON.parse(cachedMsgs);
@@ -287,30 +333,40 @@ export default function WebChatPage() {
 
     const interval = setInterval(() => {
       fetchUsers(true);
-      if (selectedUser?.userId) {
-        fetchMessages(selectedUser.userId, true);
+      if (selectedUserIdRef.current) {
+        fetchMessages(selectedUserIdRef.current, true);
       }
     }, 2500);
 
     return () => clearInterval(interval);
-  }, [fetchUsers, fetchMessages, selectedUser?.userId]);
+  }, [fetchUsers, fetchMessages]);
 
   // When selected user changes, restore cached messages for that user and fetch fresh
   useEffect(() => {
     if (selectedUserId) {
+      selectedUserIdRef.current = selectedUserId;
+      lastReadTimestampRef.current[selectedUserId] = Date.now();
+      try {
+        localStorage.setItem('webchat_last_read_map', JSON.stringify(lastReadTimestampRef.current));
+      } catch {}
+
       try {
         const cached = localStorage.getItem(`webchat_msgs_${selectedUserId}`);
         if (cached) {
           const parsed = JSON.parse(cached);
           if (Array.isArray(parsed)) {
-            // Filter strictly by selectedUserId to cleanse any previously polluted cache
             const cleaned = parsed.filter((m: ChatMessage) => m.userId === selectedUserId);
-            setMessagesByUserId((prevMap) => ({
-              ...prevMap,
-              [selectedUserId]: cleaned,
-            }));
+            setMessagesByUserId((prevMap) => {
+              const currentInMem = prevMap[selectedUserId] || [];
+              if (currentInMem.length >= cleaned.length && currentInMem.length > 0) {
+                return prevMap;
+              }
+              return {
+                ...prevMap,
+                [selectedUserId]: cleaned,
+              };
+            });
             lastMessageCountRef.current = cleaned.length;
-            localStorage.setItem(`webchat_msgs_${selectedUserId}`, JSON.stringify(cleaned));
           }
         }
       } catch {}
@@ -321,11 +377,7 @@ export default function WebChatPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: selectedUserId }),
-      }).then(() => {
-        setUsers((prev) =>
-          prev.map((u) => (u.userId === selectedUserId ? { ...u, unreadCount: 0 } : u))
-        );
-      });
+      }).catch(() => {});
     }
   }, [selectedUserId, fetchMessages]);
 
@@ -359,6 +411,12 @@ export default function WebChatPage() {
       ...prevMap,
       [targetUserId]: [...(prevMap[targetUserId] || []), optimisticMessage],
     }));
+
+    // Record read timestamp for target user
+    lastReadTimestampRef.current[targetUserId] = now;
+    try {
+      localStorage.setItem('webchat_last_read_map', JSON.stringify(lastReadTimestampRef.current));
+    } catch {}
 
     // Immediately update sidebar's last message with outbound message
     setUsers((prevUsers) => {
@@ -439,9 +497,38 @@ export default function WebChatPage() {
 
   const handleSelectUser = useCallback((user: LineUser) => {
     setSelectedUser(user);
+    selectedUserIdRef.current = user.userId;
+
+    const now = Date.now();
+    lastReadTimestampRef.current[user.userId] = Math.max(
+      lastReadTimestampRef.current[user.userId] || 0,
+      user.lastMessageAt || 0,
+      now
+    );
+    try {
+      localStorage.setItem('webchat_last_read_map', JSON.stringify(lastReadTimestampRef.current));
+    } catch {}
+
     setUsers((prev) =>
       prev.map((u) => (u.userId === user.userId ? { ...u, unreadCount: 0 } : u))
     );
+
+    // Instantly load cached messages from localStorage so conversation renders without delay
+    try {
+      const raw = localStorage.getItem(`webchat_msgs_${user.userId}`);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          const cleaned = parsed.filter((m: ChatMessage) => m.userId === user.userId);
+          setMessagesByUserId((prevMap) => ({
+            ...prevMap,
+            [user.userId]: cleaned,
+          }));
+          lastMessageCountRef.current = cleaned.length;
+        }
+      }
+    } catch {}
+
     try {
       const cached = localStorage.getItem('webchat_users_cache');
       if (cached) {
@@ -454,6 +541,12 @@ export default function WebChatPage() {
         }
       }
     } catch {}
+
+    fetch('/api/users/read', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: user.userId }),
+    }).catch(() => {});
   }, []);
 
   return (

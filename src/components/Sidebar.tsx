@@ -151,7 +151,7 @@ export function Sidebar({
         ) : (
           filteredUsers.map((user) => {
             const isSelected = selectedUser?.userId === user.userId;
-            const isUnread = (user.unreadCount || 0) > 0;
+            const isUnread = !isSelected && (user.unreadCount || 0) > 0;
             return (
               <button
                 key={user.userId}
@@ -206,8 +206,8 @@ export function Sidebar({
                     <p
                       style={{
                         fontSize: 13,
-                        color: user.unreadCount > 0 ? '#FFFFFF' : 'var(--text-secondary)',
-                        fontWeight: user.unreadCount > 0 ? 600 : 400,
+                        color: !isSelected && user.unreadCount > 0 ? '#FFFFFF' : 'var(--text-secondary)',
+                        fontWeight: !isSelected && user.unreadCount > 0 ? 600 : 400,
                         whiteSpace: 'nowrap',
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
@@ -217,7 +217,7 @@ export function Sidebar({
                       {user.lastMessage || 'ไม่มีข้อความ'}
                     </p>
 
-                    {user.unreadCount > 0 && (
+                    {!isSelected && user.unreadCount > 0 && (
                       <span className="badge-unread-count">{user.unreadCount}</span>
                     )}
                   </div>
