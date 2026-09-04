@@ -8,6 +8,8 @@ import {
   markUserAsRead,
   addMessage,
   getMessages,
+  clearUserMessages,
+  deleteUser,
   clearDatabase,
 } from '../db';
 
@@ -143,6 +145,56 @@ describe('Database & Persistence Module (src/lib/db.ts)', () => {
       expect(user).not.toBeNull();
       expect(user?.lastMessage).toBe('ข้อความล่าสุด');
       expect(user?.unreadCount).toBe(1); // User message increments unread
+    });
+  });
+
+  describe('Conversation & User Deletion', () => {
+    it('clearUserMessages should remove all messages for a user and reset lastMessage to empty', () => {
+      upsertUser({
+        userId: 'U_clear_test',
+        displayName: 'Target User',
+        lastMessage: 'ก่อนล้าง',
+        incrementUnread: true,
+      });
+
+      addMessage({
+        userId: 'U_clear_test',
+        sender: 'user',
+        text: 'ข้อความที่จะถูกลบ',
+      });
+
+      expect(getMessages('U_clear_test')).toHaveLength(1);
+
+      clearUserMessages('U_clear_test');
+
+      expect(getMessages('U_clear_test')).toHaveLength(0);
+      const user = getUserById('U_clear_test');
+      expect(user).not.toBeNull();
+      expect(user?.lastMessage).toBe('');
+      expect(user?.unreadCount).toBe(0);
+    });
+
+    it('deleteUser should remove both user profile and all associated messages', () => {
+      upsertUser({
+        userId: 'U_delete_test',
+        displayName: 'User to Delete',
+      });
+
+      addMessage({
+        userId: 'U_delete_test',
+        sender: 'user',
+        text: 'ข้อความของผู้ใช้ที่จะถูกลบ',
+      });
+
+      expect(getUserById('U_delete_test')).not.toBeNull();
+      expect(getMessages('U_delete_test')).toHaveLength(1);
+
+      const deleted = deleteUser('U_delete_test');
+      expect(deleted).toBe(true);
+
+      expect(getUserById('U_delete_test')).toBeNull();
+      expect(getMessages('U_delete_test')).toHaveLength(0);
+      expect(getAllUsers().some((u) => u.userId === 'U_delete_test')).toBe(false);
     });
   });
 });

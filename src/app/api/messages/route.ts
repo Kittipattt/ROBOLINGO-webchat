@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getMessages, addMessage, getUserById, upsertUser } from '@/lib/db';
+import { getMessages, addMessage, getUserById, upsertUser, clearUserMessages } from '@/lib/db';
 import { sendLinePushMessage, getLineUserProfile } from '@/lib/line';
 
 export const dynamic = 'force-dynamic';
@@ -79,5 +79,29 @@ export async function POST(req: NextRequest) {
   } catch (error: any) {
     console.error('[Messages API] Internal error:', error);
     return NextResponse.json({ error: error?.message || 'Server error' }, { status: 500 });
+  }
+}
+
+export async function DELETE(req: NextRequest) {
+  try {
+    const { searchParams } = new URL(req.url);
+    let userId = searchParams.get('userId');
+
+    if (!userId) {
+      try {
+        const body = await req.json();
+        userId = body.userId;
+      } catch {}
+    }
+
+    if (!userId) {
+      return NextResponse.json({ error: 'userId is required' }, { status: 400 });
+    }
+
+    const success = clearUserMessages(userId);
+    return NextResponse.json({ success, userId });
+  } catch (error: any) {
+    console.error('[Messages API] DELETE error:', error);
+    return NextResponse.json({ error: error?.message || 'Failed to clear messages' }, { status: 500 });
   }
 }

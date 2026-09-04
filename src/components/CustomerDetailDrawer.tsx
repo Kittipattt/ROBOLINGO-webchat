@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { X, Copy, Check } from 'lucide-react';
+import { X, Copy, Check, Trash2 } from 'lucide-react';
 import { LineUser } from '@/lib/types';
 
 interface CustomerDetailDrawerProps {
@@ -10,6 +10,7 @@ interface CustomerDetailDrawerProps {
   onClose: () => void;
   copiedId: boolean;
   onCopyUserId: (id: string) => void;
+  onOpenDeleteModal?: () => void;
 }
 
 export function CustomerDetailDrawer({
@@ -18,6 +19,7 @@ export function CustomerDetailDrawer({
   onClose,
   copiedId,
   onCopyUserId,
+  onOpenDeleteModal,
 }: CustomerDetailDrawerProps) {
   return (
     <aside className="detail-drawer">
@@ -175,6 +177,66 @@ export function CustomerDetailDrawer({
           </div>
         </div>
       </div>
+
+      {/* Danger Zone */}
+      {onOpenDeleteModal && (
+        <div
+          style={{
+            marginTop: 'auto',
+            background: 'rgba(239, 68, 68, 0.05)',
+            border: '1px solid rgba(239, 68, 68, 0.22)',
+            borderRadius: 'var(--radius-md)',
+            padding: '14px',
+          }}
+        >
+          <span
+            style={{
+              fontSize: 12,
+              fontWeight: 700,
+              color: '#f87171',
+              marginBottom: 6,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+            }}
+          >
+            <Trash2 size={13} />
+            จัดการการสนทนา (Danger Zone)
+          </span>
+          <p
+            style={{
+              fontSize: 11.5,
+              color: 'var(--text-muted)',
+              marginBottom: 10,
+              lineHeight: 1.4,
+            }}
+          >
+            ล้างประวัติข้อความ หรือลบผู้ใช้นี้ออกจากระบบ WebChat
+          </p>
+          <button
+            onClick={onOpenDeleteModal}
+            style={{
+              width: '100%',
+              padding: '8px 12px',
+              background: 'rgba(239, 68, 68, 0.12)',
+              border: '1px solid rgba(239, 68, 68, 0.35)',
+              borderRadius: 'var(--radius-sm)',
+              color: '#fca5a5',
+              fontSize: 12,
+              fontWeight: 600,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 6,
+              transition: 'all 0.2s',
+            }}
+          >
+            <Trash2 size={13} />
+            <span>ลบหรือล้างประวัติแชท</span>
+          </button>
+        </div>
+      )}
     </aside>
   );
 }

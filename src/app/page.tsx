@@ -7,6 +7,7 @@ import { Sidebar } from '@/components/Sidebar';
 import { ChatCanvas } from '@/components/ChatCanvas';
 import { CustomerDetailDrawer } from '@/components/CustomerDetailDrawer';
 import { QrCodeModal } from '@/components/QrCodeModal';
+import { DeleteChatModal } from '@/components/DeleteChatModal';
 
 export default function WebChatPage() {
   const [users, setUsers] = useState<LineUser[]>([]);
@@ -21,6 +22,7 @@ export default function WebChatPage() {
   const [showQrModal, setShowQrModal] = useState(false);
   const [showDetailDrawer, setShowDetailDrawer] = useState(true);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [copiedId, setCopiedId] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -708,6 +710,84 @@ export default function WebChatPage() {
     }).catch(() => {});
   }, [fetchMessages]);
 
+  const handleClearMessages = useCallback(async (userId: string) => {
+    try {
+      const res = await fetch(`/api/messages?userId=${encodeURIComponent(userId)}`, {
+        method: 'DELETE',
+      });
+      if (!res.ok) {
+        throw new Error('Failed to clear messages');
+      }
+
+      setMessagesByUserId((prev) => ({
+        ...prev,
+        [userId]: [],
+      }));
+      lastMessageCountRef.current = 0;
+
+      try {
+        localStorage.removeItem(`webchat_msgs_${userId}`);
+      } catch {}
+
+      setUsers((prev) => {
+        const updated = prev.map((u) =>
+          u.userId === userId ? { ...u, lastMessage: '', unreadCount: 0 } : u
+        );
+        try {
+          localStorage.setItem('webchat_users_cache', JSON.stringify(updated));
+        } catch {}
+        return updated;
+      });
+
+      setSelectedUser((prev) =>
+        prev && prev.userId === userId ? { ...prev, lastMessage: '', unreadCount: 0 } : prev
+      );
+    } catch (err) {
+      console.error('[WebChat] Error clearing messages:', err);
+      throw err;
+    }
+  }, []);
+
+  const handleDeleteConversation = useCallback(async (userId: string) => {
+    try {
+      const res = await fetch(`/api/users?userId=${encodeURIComponent(userId)}`, {
+        method: 'DELETE',
+      });
+      if (!res.ok) {
+        throw new Error('Failed to delete conversation');
+      }
+
+      setMessagesByUserId((prev) => {
+        const next = { ...prev };
+        delete next[userId];
+        return next;
+      });
+
+      try {
+        localStorage.removeItem(`webchat_msgs_${userId}`);
+      } catch {}
+
+      let remainingUsers: LineUser[] = [];
+      setUsers((prev) => {
+        remainingUsers = prev.filter((u) => u.userId !== userId);
+        try {
+          localStorage.setItem('webchat_users_cache', JSON.stringify(remainingUsers));
+        } catch {}
+        return remainingUsers;
+      });
+
+      setSelectedUser((prev) => {
+        if (prev?.userId === userId) {
+          return remainingUsers.length > 0 ? remainingUsers[0] : null;
+        }
+        return prev;
+      });
+    } catch (err) {
+      console.error('[WebChat] Error deleting conversation:', err);
+      throw err;
+    }
+  }, []);
+
   return (
     <div className="app-container">
       <TopNavbar
@@ -747,6 +827,7 @@ export default function WebChatPage() {
           messagesEndRef={messagesEndRef}
           textareaRef={textareaRef}
           onOpenQrModal={() => setShowQrModal(true)}
+          onOpenDeleteModal={() => setShowDeleteModal(true)}
         />
 
         {selectedUser && showDetailDrawer && (
@@ -756,11 +837,21 @@ export default function WebChatPage() {
             onClose={() => setShowDetailDrawer(false)}
             copiedId={copiedId}
             onCopyUserId={copyUserId}
+            onOpenDeleteModal={() => setShowDeleteModal(true)}
           />
         )}
       </div>
 
       <QrCodeModal isOpen={showQrModal} onClose={() => setShowQrModal(false)} />
+
+      <DeleteChatModal
+        isOpen={showDeleteModal}
+        onClose={() => setShowDeleteModal(false)}
+        targetUser={selectedUser}
+        messageCount={activeMessages.length}
+        onClearMessages={handleClearMessages}
+        onDeleteConversation={handleDeleteConversation}
+      />
     </div>
   );
 }

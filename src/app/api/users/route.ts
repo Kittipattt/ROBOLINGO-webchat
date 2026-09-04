@@ -1,5 +1,5 @@
-import { NextResponse } from 'next/server';
-import { getAllUsers, upsertUser } from '@/lib/db';
+import { NextRequest, NextResponse } from 'next/server';
+import { getAllUsers, upsertUser, deleteUser } from '@/lib/db';
 import { getLineUserProfile } from '@/lib/line';
 
 export const dynamic = 'force-dynamic';
@@ -48,5 +48,28 @@ export async function GET() {
     );
   } catch (error: any) {
     return NextResponse.json({ error: error?.message || 'Failed to fetch users' }, { status: 500 });
+  }
+}
+
+export async function DELETE(req: NextRequest) {
+  try {
+    const { searchParams } = new URL(req.url);
+    let userId = searchParams.get('userId');
+
+    if (!userId) {
+      try {
+        const body = await req.json();
+        userId = body.userId;
+      } catch {}
+    }
+
+    if (!userId) {
+      return NextResponse.json({ error: 'userId is required' }, { status: 400 });
+    }
+
+    const deleted = deleteUser(userId);
+    return NextResponse.json({ success: true, deleted, userId });
+  } catch (error: any) {
+    return NextResponse.json({ error: error?.message || 'Failed to delete user' }, { status: 500 });
   }
 }
