@@ -10,7 +10,16 @@ export async function GET(req: NextRequest) {
     const userId = searchParams.get('userId') || undefined;
 
     const messages = getMessages(userId);
-    return NextResponse.json({ messages });
+    return NextResponse.json(
+      { messages },
+      {
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+          Pragma: 'no-cache',
+          Expires: '0',
+        },
+      }
+    );
   } catch (error: any) {
     return NextResponse.json({ error: error?.message || 'Failed to fetch messages' }, { status: 500 });
   }
