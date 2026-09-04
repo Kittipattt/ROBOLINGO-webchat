@@ -6,6 +6,7 @@ export interface LineUser {
   lastMessage: string;
   lastMessageAt: number; // Unix timestamp in ms
   unreadCount: number;
+  lastSender?: 'user' | 'agent';
 }
 
 export interface ChatMessage {
