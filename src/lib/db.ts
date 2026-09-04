@@ -100,10 +100,13 @@ export function upsertUser(data: {
   }
 
   // Monotonic timestamp protection: never allow an older lastMessage to overwrite a newer one
-  let lastMessage = data.lastMessage ?? existing?.lastMessage ?? '';
-  let lastMessageAt = data.lastMessageAt ?? now;
+  // and never allow an empty/whitespace lastMessage to overwrite an existing non-empty lastMessage
+  let lastMessage = data.lastMessage && data.lastMessage.trim() ? data.lastMessage : (existing?.lastMessage || '');
+  let lastMessageAt = data.lastMessageAt ?? (existing?.lastMessageAt || now);
   if (existing?.lastMessageAt && (data.lastMessageAt || 0) < existing.lastMessageAt) {
-    lastMessage = existing.lastMessage;
+    if (existing.lastMessage && existing.lastMessage.trim()) {
+      lastMessage = existing.lastMessage;
+    }
     lastMessageAt = existing.lastMessageAt;
   }
 

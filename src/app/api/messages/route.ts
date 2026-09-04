@@ -66,6 +66,8 @@ export async function POST(req: NextRequest) {
             displayName: profile.displayName,
             pictureUrl: profile.pictureUrl,
             statusMessage: profile.statusMessage,
+            lastMessage: text.trim(),
+            lastMessageAt: message.createdAt,
           });
         }
       } catch {}
