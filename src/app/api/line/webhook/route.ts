@@ -3,6 +3,8 @@ import { verifyLineSignature, getLineUserProfile } from '@/lib/line';
 import { addMessage, upsertUser } from '@/lib/db';
 import { LineWebhookPayload } from '@/lib/types';
 
+export const dynamic = 'force-dynamic';
+
 export async function POST(req: NextRequest) {
   try {
     const rawBody = await req.text();
