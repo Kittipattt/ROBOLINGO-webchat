@@ -1,0 +1,130 @@
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import fs from 'fs';
+import path from 'path';
+import {
+  getAllUsers,
+  getUserById,
+  upsertUser,
+  markUserAsRead,
+  addMessage,
+  getMessages,
+  clearDatabase,
+} from '../db';
+
+describe('Database & Persistence Module (src/lib/db.ts)', () => {
+  const testDataDir = path.join(process.cwd(), 'data-test');
+
+  beforeEach(() => {
+    process.env.DATA_DIR = testDataDir;
+    clearDatabase();
+  });
+
+  afterEach(() => {
+    clearDatabase();
+    delete process.env.DATA_DIR;
+    if (fs.existsSync(testDataDir)) {
+      fs.rmSync(testDataDir, { recursive: true, force: true });
+    }
+  });
+
+  describe('User Management', () => {
+    it('should upsert a new LINE user profile', () => {
+      const user = upsertUser({
+        userId: 'U111',
+        displayName: 'Somchai',
+        pictureUrl: 'https://example.com/pic.jpg',
+        lastMessage: 'สวัสดีครับ',
+      });
+
+      expect(user.userId).toBe('U111');
+      expect(user.displayName).toBe('Somchai');
+      expect(user.unreadCount).toBe(0);
+
+      const fetched = getUserById('U111');
+      expect(fetched?.displayName).toBe('Somchai');
+    });
+
+    it('should increment unread count when incrementUnread is true', () => {
+      upsertUser({
+        userId: 'U222',
+        displayName: 'Kittipat',
+        incrementUnread: true,
+      });
+
+      let user = getUserById('U222');
+      expect(user?.unreadCount).toBe(1);
+
+      upsertUser({
+        userId: 'U222',
+        incrementUnread: true,
+      });
+
+      user = getUserById('U222');
+      expect(user?.unreadCount).toBe(2);
+    });
+
+    it('should reset unread count when marked as read', () => {
+      upsertUser({
+        userId: 'U333',
+        displayName: 'Alice',
+        incrementUnread: true,
+      });
+
+      markUserAsRead('U333');
+      const user = getUserById('U333');
+      expect(user?.unreadCount).toBe(0);
+    });
+
+    it('should sort users by lastMessageAt descending', () => {
+      upsertUser({
+        userId: 'U_old',
+        displayName: 'Old User',
+        lastMessageAt: 1000,
+      });
+
+      upsertUser({
+        userId: 'U_new',
+        displayName: 'New User',
+        lastMessageAt: 2000,
+      });
+
+      const users = getAllUsers();
+      expect(users[0].userId).toBe('U_new');
+      expect(users[1].userId).toBe('U_old');
+    });
+  });
+
+  describe('Message Management', () => {
+    it('should store and retrieve messages by userId', () => {
+      const msg1 = addMessage({
+        userId: 'U444',
+        sender: 'user',
+        text: 'ข้อความจากผู้ใช้',
+      });
+
+      const msg2 = addMessage({
+        userId: 'U444',
+        sender: 'agent',
+        text: 'ข้อความตอบกลับจากแอดมิน',
+      });
+
+      const conversation = getMessages('U444');
+      expect(conversation).toHaveLength(2);
+      expect(conversation[0].text).toBe('ข้อความจากผู้ใช้');
+      expect(conversation[1].text).toBe('ข้อความตอบกลับจากแอดมิน');
+    });
+
+    it('should update user lastMessage and lastMessageAt when message is added', () => {
+      addMessage({
+        userId: 'U555',
+        sender: 'user',
+        text: 'ข้อความล่าสุด',
+      });
+
+      const user = getUserById('U555');
+      expect(user).not.toBeNull();
+      expect(user?.lastMessage).toBe('ข้อความล่าสุด');
+      expect(user?.unreadCount).toBe(1); // User message increments unread
+    });
+  });
+});

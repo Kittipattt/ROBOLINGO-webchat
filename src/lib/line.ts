@@ -1,24 +1,32 @@
 import crypto from 'crypto';
 
-const CHANNEL_SECRET = process.env.LINE_CHANNEL_SECRET || '';
-const CHANNEL_ACCESS_TOKEN = process.env.LINE_CHANNEL_ACCESS_TOKEN || '';
+const getChannelSecret = () => process.env.LINE_CHANNEL_SECRET || '';
+const getChannelAccessToken = () => process.env.LINE_CHANNEL_ACCESS_TOKEN || '';
 
 /**
  * Verifies LINE webhook signature using HMAC-SHA256
  */
 export function verifyLineSignature(body: string, signature: string | null): boolean {
-  if (!CHANNEL_SECRET || !signature) {
+  const secret = getChannelSecret();
+  if (!secret || !signature) {
     console.warn('[LINE] Channel secret or signature missing');
     return false;
   }
 
   try {
     const hash = crypto
-      .createHmac('sha256', CHANNEL_SECRET)
+      .createHmac('sha256', secret)
       .update(body)
       .digest('base64');
 
-    return crypto.timingSafeEqual(Buffer.from(hash), Buffer.from(signature));
+    const hashBuffer = Buffer.from(hash);
+    const sigBuffer = Buffer.from(signature);
+
+    if (hashBuffer.length !== sigBuffer.length) {
+      return false;
+    }
+
+    return crypto.timingSafeEqual(hashBuffer, sigBuffer);
   } catch (error) {
     console.error('[LINE] Error verifying signature:', error);
     return false;
@@ -33,14 +41,15 @@ export async function getLineUserProfile(userId: string): Promise<{
   pictureUrl?: string;
   statusMessage?: string;
 } | null> {
-  if (!CHANNEL_ACCESS_TOKEN || !userId) {
+  const token = getChannelAccessToken();
+  if (!token || !userId) {
     return null;
   }
 
   try {
     const res = await fetch(`https://api.line.me/v2/bot/profile/${userId}`, {
       headers: {
-        Authorization: `Bearer ${CHANNEL_ACCESS_TOKEN}`,
+        Authorization: `Bearer ${token}`,
       },
       // Avoid stale cache
       cache: 'no-store',
@@ -71,7 +80,8 @@ export async function sendLinePushMessage(userId: string, text: string): Promise
   success: boolean;
   error?: string;
 }> {
-  if (!CHANNEL_ACCESS_TOKEN) {
+  const token = getChannelAccessToken();
+  if (!token) {
     return { success: false, error: 'LINE_CHANNEL_ACCESS_TOKEN is not configured' };
   }
 
@@ -84,7 +94,7 @@ export async function sendLinePushMessage(userId: string, text: string): Promise
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${CHANNEL_ACCESS_TOKEN}`,
+        Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify({
         to: userId,
