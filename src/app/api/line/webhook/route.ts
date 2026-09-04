@@ -33,9 +33,28 @@ export async function POST(req: NextRequest) {
       const userId = event.source?.userId;
       if (!userId) continue;
 
-      // 2. Handle Text Message Event
-      if (event.type === 'message' && event.message?.type === 'text') {
-        const text = event.message.text || '';
+      // 2. Handle Message Event (Text, Sticker, Image, Video, Audio, Location, File)
+      if (event.type === 'message' && event.message) {
+        const msg = event.message as Record<string, any>;
+        let text = '';
+
+        if (msg.type === 'text') {
+          text = msg.text || '';
+        } else if (msg.type === 'sticker') {
+          text = '🏷️ [สติกเกอร์]';
+        } else if (msg.type === 'image') {
+          text = '📷 [รูปภาพ]';
+        } else if (msg.type === 'video') {
+          text = '🎥 [วิดีโอ]';
+        } else if (msg.type === 'audio') {
+          text = '🎵 [ข้อความเสียง]';
+        } else if (msg.type === 'location') {
+          text = `📍 [ตำแหน่งที่ตั้ง] ${msg.title || msg.address || ''}`.trim();
+        } else if (msg.type === 'file') {
+          text = `📁 [ไฟล์] ${msg.fileName || ''}`.trim();
+        } else {
+          text = `[ข้อความ ${msg.type}]`;
+        }
 
         // Fetch User Profile from LINE if not yet known or to update avatar/name
         const profile = await getLineUserProfile(userId);
@@ -58,10 +77,10 @@ export async function POST(req: NextRequest) {
           text,
         });
 
-        console.log(`[Webhook] Stored message from ${profile?.displayName || userId}: "${text}"`);
+        console.log(`[Webhook] Stored ${msg.type} message from ${profile?.displayName || userId}: "${text}"`);
       }
 
-      // 3. Handle Follow Event (User adds OA as friend)
+      // 3. Handle Follow Event (User adds OA as friend or unblocks)
       if (event.type === 'follow') {
         const profile = await getLineUserProfile(userId);
         upsertUser({
