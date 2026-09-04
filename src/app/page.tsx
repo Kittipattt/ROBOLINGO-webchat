@@ -111,6 +111,20 @@ export default function WebChatPage() {
                 bestLastMessageAt = u.lastMessageAt;
               }
 
+              // Unread count tracking:
+              // If user is currently active/open, keep unreadCount at 0.
+              // Otherwise, adopt incoming unreadCount or increment if a newer message arrived.
+              const isCurrentActive = selectedUserId === u.userId;
+              let bestUnreadCount = 0;
+              if (!isCurrentActive) {
+                if (existing && (u.lastMessageAt || 0) > (existing.lastMessageAt || 0)) {
+                  bestUnreadCount = Math.max(u.unreadCount || 1, (existing.unreadCount || 0) + 1);
+                } else {
+                  bestUnreadCount =
+                    u.unreadCount !== undefined ? u.unreadCount : existing?.unreadCount || 0;
+                }
+              }
+
               map.set(u.userId, {
                 ...existing,
                 ...u,
@@ -119,7 +133,7 @@ export default function WebChatPage() {
                 statusMessage: bestStatusMessage,
                 lastMessage: bestLastMessage,
                 lastMessageAt: bestLastMessageAt,
-                unreadCount: existing ? existing.unreadCount : u.unreadCount,
+                unreadCount: bestUnreadCount,
               });
             });
             const merged = Array.from(map.values()).sort((a, b) => b.lastMessageAt - a.lastMessageAt);
@@ -423,6 +437,25 @@ export default function WebChatPage() {
     setTimeout(() => setCopiedId(false), 2000);
   };
 
+  const handleSelectUser = useCallback((user: LineUser) => {
+    setSelectedUser(user);
+    setUsers((prev) =>
+      prev.map((u) => (u.userId === user.userId ? { ...u, unreadCount: 0 } : u))
+    );
+    try {
+      const cached = localStorage.getItem('webchat_users_cache');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed)) {
+          const updated = parsed.map((u: LineUser) =>
+            u.userId === user.userId ? { ...u, unreadCount: 0 } : u
+          );
+          localStorage.setItem('webchat_users_cache', JSON.stringify(updated));
+        }
+      }
+    } catch {}
+  }, []);
+
   return (
     <div className="app-container">
       <TopNavbar
@@ -437,7 +470,7 @@ export default function WebChatPage() {
         <Sidebar
           users={users}
           selectedUser={selectedUser}
-          onSelectUser={setSelectedUser}
+          onSelectUser={handleSelectUser}
           activeTab={activeTab}
           onTabChange={setActiveTab}
           searchQuery={searchQuery}
