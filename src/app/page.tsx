@@ -28,7 +28,7 @@ import { LineUser, ChatMessage } from '@/lib/types';
 export default function WebChatPage() {
   const [users, setUsers] = useState<LineUser[]>([]);
   const [selectedUser, setSelectedUser] = useState<LineUser | null>(null);
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [messagesByUserId, setMessagesByUserId] = useState<Record<string, ChatMessage[]>>({});
   const [inputText, setInputText] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<'all' | 'unread' | 'replied'>('all');
@@ -45,6 +45,14 @@ export default function WebChatPage() {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const lastMessageCountRef = useRef<number>(0);
+
+  const selectedUserId = selectedUser?.userId;
+
+  // Active messages strictly filtered for the selected user
+  const activeMessages = useMemo(() => {
+    if (!selectedUserId) return [];
+    return (messagesByUserId[selectedUserId] || []).filter((m) => m.userId === selectedUserId);
+  }, [selectedUserId, messagesByUserId]);
 
   // Keyboard shortcut (Cmd+K / Ctrl+K)
   useEffect(() => {
@@ -121,23 +129,29 @@ export default function WebChatPage() {
     }
   }, []);
 
-  // Fetch messages for active user with non-destructive state merging
+  // Fetch messages strictly scoped to userId
   const fetchMessages = useCallback(
     async (userId: string, silent = false) => {
       try {
         const res = await fetch(`/api/messages?userId=${encodeURIComponent(userId)}`);
         if (res.ok) {
           const data = await res.json();
-          const incoming: ChatMessage[] = data.messages || [];
+          const incoming: ChatMessage[] = (data.messages || []).filter(
+            (m: ChatMessage) => m.userId === userId
+          );
 
-          setMessages((prev) => {
-            // If incoming is empty but we already have messages in UI, do not wipe out!
-            if (incoming.length === 0 && prev.length > 0) {
-              return prev;
+          setMessagesByUserId((prevMap) => {
+            const prevForUser = (prevMap[userId] || []).filter(
+              (m: ChatMessage) => m.userId === userId
+            );
+
+            // If incoming is empty but we already have messages in UI for this user, do not wipe out!
+            if (incoming.length === 0 && prevForUser.length > 0) {
+              return prevMap;
             }
 
             const map = new Map<string, ChatMessage>();
-            prev.forEach((m) => map.set(m.id, m));
+            prevForUser.forEach((m) => map.set(m.id, m));
             incoming.forEach((m) => map.set(m.id, m));
             const merged = Array.from(map.values()).sort((a, b) => a.createdAt - b.createdAt);
 
@@ -151,10 +165,15 @@ export default function WebChatPage() {
               }
             }
             lastMessageCountRef.current = merged.length;
+
             try {
               localStorage.setItem(`webchat_msgs_${userId}`, JSON.stringify(merged));
             } catch {}
-            return merged;
+
+            return {
+              ...prevMap,
+              [userId]: merged,
+            };
           });
         }
       } catch (err) {
@@ -173,6 +192,18 @@ export default function WebChatPage() {
         if (Array.isArray(parsed) && parsed.length > 0) {
           setUsers(parsed);
           setSelectedUser((curr) => curr || parsed[0]);
+
+          // Load & sanitize cached messages for initial user
+          const initialId = parsed[0].userId;
+          const cachedMsgs = localStorage.getItem(`webchat_msgs_${initialId}`);
+          if (cachedMsgs) {
+            const parsedMsgs = JSON.parse(cachedMsgs);
+            if (Array.isArray(parsedMsgs)) {
+              const cleaned = parsedMsgs.filter((m: ChatMessage) => m.userId === initialId);
+              setMessagesByUserId({ [initialId]: cleaned });
+              localStorage.setItem(`webchat_msgs_${initialId}`, JSON.stringify(cleaned));
+            }
+          }
         }
       }
     } catch {}
@@ -189,18 +220,22 @@ export default function WebChatPage() {
     return () => clearInterval(interval);
   }, [fetchUsers, fetchMessages, selectedUser?.userId]);
 
-  const selectedUserId = selectedUser?.userId;
-
-  // When selected user changes, restore cached messages immediately then fetch
+  // When selected user changes, restore cached messages for that user and fetch fresh
   useEffect(() => {
     if (selectedUserId) {
       try {
         const cached = localStorage.getItem(`webchat_msgs_${selectedUserId}`);
         if (cached) {
           const parsed = JSON.parse(cached);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            setMessages(parsed);
-            lastMessageCountRef.current = parsed.length;
+          if (Array.isArray(parsed)) {
+            // Filter strictly by selectedUserId to cleanse any previously polluted cache
+            const cleaned = parsed.filter((m: ChatMessage) => m.userId === selectedUserId);
+            setMessagesByUserId((prevMap) => ({
+              ...prevMap,
+              [selectedUserId]: cleaned,
+            }));
+            lastMessageCountRef.current = cleaned.length;
+            localStorage.setItem(`webchat_msgs_${selectedUserId}`, JSON.stringify(cleaned));
           }
         }
       } catch {}
@@ -219,16 +254,17 @@ export default function WebChatPage() {
     }
   }, [selectedUserId, fetchMessages]);
 
-  // Auto-scroll
+  // Auto-scroll on new message
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  }, [activeMessages]);
 
   // Send message
   const handleSendMessage = async (textToSend?: string) => {
     const text = (textToSend || inputText).trim();
     if (!text || !selectedUser || isSending) return;
 
+    const targetUserId = selectedUser.userId;
     setIsSending(true);
     setInputText('');
     setShowEmojiPicker(false);
@@ -236,43 +272,68 @@ export default function WebChatPage() {
     const tempId = `temp_${Date.now()}`;
     const optimisticMessage: ChatMessage = {
       id: tempId,
-      userId: selectedUser.userId,
+      userId: targetUserId,
       sender: 'agent',
       text,
       createdAt: Date.now(),
       status: 'sending',
     };
 
-    setMessages((prev) => [...prev, optimisticMessage]);
+    setMessagesByUserId((prevMap) => ({
+      ...prevMap,
+      [targetUserId]: [...(prevMap[targetUserId] || []), optimisticMessage],
+    }));
 
     try {
       const res = await fetch('/api/messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          userId: selectedUser.userId,
+          userId: targetUserId,
           text,
         }),
       });
 
       if (res.ok) {
         const data = await res.json();
-        setMessages((prev) =>
-          prev.map((m) => (m.id === tempId ? data.message || { ...m, status: 'sent' } : m))
-        );
+        setMessagesByUserId((prevMap) => {
+          const userMsgs = prevMap[targetUserId] || [];
+          const updated = userMsgs.map((m) =>
+            m.id === tempId ? data.message || { ...m, status: 'sent' } : m
+          );
+          try {
+            localStorage.setItem(`webchat_msgs_${targetUserId}`, JSON.stringify(updated));
+          } catch {}
+          return {
+            ...prevMap,
+            [targetUserId]: updated,
+          };
+        });
         fetchUsers(true);
       } else {
         const errData = await res.json().catch(() => ({}));
         alert(`เกิดข้อผิดพลาดในการส่งข้อความ: ${errData.error || 'Server error'}`);
-        setMessages((prev) =>
-          prev.map((m) => (m.id === tempId ? { ...m, status: 'error' } : m))
-        );
+        setMessagesByUserId((prevMap) => {
+          const userMsgs = prevMap[targetUserId] || [];
+          return {
+            ...prevMap,
+            [targetUserId]: userMsgs.map((m) =>
+              m.id === tempId ? { ...m, status: 'error' } : m
+            ),
+          };
+        });
       }
     } catch (err: any) {
       alert(`เชื่อมต่อเซิร์ฟเวอร์ล้มเหลว: ${err?.message}`);
-      setMessages((prev) =>
-        prev.map((m) => (m.id === tempId ? { ...m, status: 'error' } : m))
-      );
+      setMessagesByUserId((prevMap) => {
+        const userMsgs = prevMap[targetUserId] || [];
+        return {
+          ...prevMap,
+          [targetUserId]: userMsgs.map((m) =>
+            m.id === tempId ? { ...m, status: 'error' } : m
+          ),
+        };
+      });
     } finally {
       setIsSending(false);
       textareaRef.current?.focus();
@@ -722,7 +783,7 @@ export default function WebChatPage() {
                 <span className="date-pill">บทสนทนาผ่าน LINE Messaging API</span>
               </div>
 
-              {messages.length === 0 ? (
+              {activeMessages.length === 0 ? (
                 <div
                   style={{
                     flex: 1,
@@ -757,7 +818,7 @@ export default function WebChatPage() {
                   </p>
                 </div>
               ) : (
-                messages.map((msg) => {
+                activeMessages.map((msg) => {
                   const isUser = msg.sender === 'user';
                   return (
                     <div
@@ -1081,7 +1142,7 @@ export default function WebChatPage() {
                 <div className="drawer-stat-box">
                   <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>ข้อความในห้องนี้</span>
                   <strong style={{ fontSize: 18, color: 'var(--text-primary)' }}>
-                    {messages.length}
+                    {activeMessages.length}
                   </strong>
                 </div>
                 <div className="drawer-stat-box">
