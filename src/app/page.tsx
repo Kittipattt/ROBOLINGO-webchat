@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   MessageSquare,
   Send,
@@ -14,11 +14,21 @@ import {
   BellOff,
   RefreshCw,
   Clock,
-  ShieldCheck,
   X,
   PlusCircle,
   Copy,
   Check,
+  PanelRight,
+  Smile,
+  ShieldCheck,
+  Activity,
+  Inbox,
+  Filter,
+  Flame,
+  ThumbsUp,
+  Heart,
+  ChevronRight,
+  Hash,
 } from 'lucide-react';
 import { LineUser, ChatMessage } from '@/lib/types';
 
@@ -28,21 +38,39 @@ export default function WebChatPage() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [activeTab, setActiveTab] = useState<'all' | 'unread' | 'replied'>('all');
   const [isSending, setIsSending] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [showQrModal, setShowQrModal] = useState(false);
   const [showSimulateModal, setShowSimulateModal] = useState(false);
+  const [showDetailDrawer, setShowDetailDrawer] = useState(true);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [copiedId, setCopiedId] = useState(false);
+  const [copiedMsgId, setCopiedMsgId] = useState<string | null>(null);
 
   // Simulation form state
-  const [simName, setSimName] = useState('ผู้ทดสอบ LINE');
-  const [simText, setSimText] = useState('สวัสดีครับ สอบถามข้อมูลเรื่องสินค้าและบริการครับ');
+  const [simName, setSimName] = useState('คุณวริษา สุขใจ');
+  const [simText, setSimText] = useState('สวัสดีค่ะ อยากสอบถามแพ็กเกจและราคาของระบบหน่อยค่ะ');
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const lastMessageCountRef = useRef<number>(0);
 
-  // Synthesize gentle notification sound using Web Audio API
+  // Keyboard shortcut listener (Cmd+K / Ctrl+K to search)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  // Web Audio notification sound
   const playNotificationSound = useCallback(() => {
     if (!soundEnabled || typeof window === 'undefined') return;
     try {
@@ -53,10 +81,10 @@ export default function WebChatPage() {
       const gain = ctx.createGain();
 
       osc.type = 'sine';
-      osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
-      osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.12); // A5
+      osc.frequency.setValueAtTime(523.25, ctx.currentTime); // C5
+      osc.frequency.exponentialRampToValueAtTime(783.99, ctx.currentTime + 0.1); // G5
 
-      gain.gain.setValueAtTime(0.12, ctx.currentTime);
+      gain.gain.setValueAtTime(0.15, ctx.currentTime);
       gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
 
       osc.connect(gain);
@@ -65,7 +93,7 @@ export default function WebChatPage() {
       osc.start();
       osc.stop(ctx.currentTime + 0.35);
     } catch {
-      // Audio context might be restricted before first user gesture
+      // Audio context might be restricted before interaction
     }
   }, [soundEnabled]);
 
@@ -94,7 +122,6 @@ export default function WebChatPage() {
           const data = await res.json();
           const newMessages: ChatMessage[] = data.messages || [];
 
-          // Play sound if new message arrived from LINE user
           if (
             lastMessageCountRef.current > 0 &&
             newMessages.length > lastMessageCountRef.current
@@ -114,11 +141,10 @@ export default function WebChatPage() {
     [playNotificationSound]
   );
 
-  // Initial load and polling
+  // Initial load and polling loop (2.5s)
   useEffect(() => {
     fetchUsers();
 
-    // Poll users and messages every 2.5 seconds for instant real-time experience
     const interval = setInterval(() => {
       fetchUsers(true);
       if (selectedUser?.userId) {
@@ -129,7 +155,7 @@ export default function WebChatPage() {
     return () => clearInterval(interval);
   }, [fetchUsers, fetchMessages, selectedUser?.userId]);
 
-  // When active user changes
+  // When selected user changes
   useEffect(() => {
     if (selectedUser?.userId) {
       lastMessageCountRef.current = 0;
@@ -141,7 +167,6 @@ export default function WebChatPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: selectedUser.userId }),
       }).then(() => {
-        // Local update of unread count
         setUsers((prev) =>
           prev.map((u) => (u.userId === selectedUser.userId ? { ...u, unreadCount: 0 } : u))
         );
@@ -151,20 +176,20 @@ export default function WebChatPage() {
     }
   }, [selectedUser, fetchMessages]);
 
-  // Auto-scroll on new messages
+  // Auto-scroll
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Send message handler
+  // Handle Send Message
   const handleSendMessage = async (textToSend?: string) => {
     const text = (textToSend || inputText).trim();
     if (!text || !selectedUser || isSending) return;
 
     setIsSending(true);
     setInputText('');
+    setShowEmojiPicker(false);
 
-    // Optimistic message update
     const tempId = `temp_${Date.now()}`;
     const optimisticMessage: ChatMessage = {
       id: tempId,
@@ -189,15 +214,13 @@ export default function WebChatPage() {
 
       if (res.ok) {
         const data = await res.json();
-        // Replace optimistic message with actual saved message
         setMessages((prev) =>
           prev.map((m) => (m.id === tempId ? data.message || { ...m, status: 'sent' } : m))
         );
         fetchUsers(true);
       } else {
         const errData = await res.json().catch(() => ({}));
-        alert(`เกิดข้อผิดพลาดในการส่ง LINE Message: ${errData.error || 'Server error'}`);
-        // Mark as error
+        alert(`เกิดข้อผิดพลาดในการส่งข้อความ: ${errData.error || 'Server error'}`);
         setMessages((prev) =>
           prev.map((m) => (m.id === tempId ? { ...m, status: 'error' } : m))
         );
@@ -209,27 +232,43 @@ export default function WebChatPage() {
       );
     } finally {
       setIsSending(false);
+      textareaRef.current?.focus();
     }
   };
 
-  // Quick replies
+  // Quick reply options
   const quickReplies = [
-    'สวัสดีครับ ยินดีต้อนรับครับ 😊',
-    'ยินดีให้บริการครับ มีอะไรให้ช่วยเหลือเพิ่มเติมไหมครับ?',
-    'ทางทีมงานกำลังตรวจสอบข้อมูลให้สักครู่นะครับ ⏳',
+    'สวัสดีครับ ยินดีต้อนรับสู่ ROBO LINGO ครับ ✨',
+    'ยินดีให้บริการครับ มีอะไรให้เราช่วยเหลือเพิ่มเติมไหมครับ?',
+    'ทางทีมงานกำลังเร่งตรวจสอบข้อมูลให้นะครับ สักครู่ครับ ⏳',
     'ขอบคุณที่ติดต่อเราครับ หากมีข้อสงสัยสอบถามได้ตลอดเวลาครับ 🙏',
   ];
 
-  // Filtered users by search
-  const filteredUsers = users.filter((u) => {
-    const q = searchQuery.toLowerCase();
-    return (
-      u.displayName.toLowerCase().includes(q) ||
-      u.lastMessage.toLowerCase().includes(q) ||
-      u.userId.toLowerCase().includes(q)
-    );
-  });
+  // Common emojis
+  const emojis = ['😊', '🙏', '👍', '❤️', '🔥', '✨', '👏', '🎉', '⏳', '💡'];
 
+  // Filtered users
+  const filteredUsers = useMemo(() => {
+    return users.filter((u) => {
+      const q = searchQuery.toLowerCase();
+      const matchesSearch =
+        u.displayName.toLowerCase().includes(q) ||
+        u.lastMessage.toLowerCase().includes(q) ||
+        u.userId.toLowerCase().includes(q);
+
+      if (!matchesSearch) return false;
+
+      if (activeTab === 'unread') {
+        return u.unreadCount > 0;
+      }
+      if (activeTab === 'replied') {
+        return u.unreadCount === 0;
+      }
+      return true;
+    });
+  }, [users, searchQuery, activeTab]);
+
+  // Simulation handler
   const handleSimulateMessage = async () => {
     if (!simText.trim()) return;
     try {
@@ -268,6 +307,12 @@ export default function WebChatPage() {
     setTimeout(() => setCopiedId(false), 2000);
   };
 
+  const copyMessage = (text: string, msgId: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedMsgId(msgId);
+    setTimeout(() => setCopiedMsgId(null), 1500);
+  };
+
   const formatTime = (timestamp: number) => {
     const date = new Date(timestamp);
     const now = new Date();
@@ -285,201 +330,216 @@ export default function WebChatPage() {
   return (
     <div className="app-container">
       {/* Top Navigation Bar */}
-      <header className="top-navbar glass-header">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <div
-            style={{
-              width: 38,
-              height: 38,
-              borderRadius: 10,
-              background: 'linear-gradient(135deg, #06C755 0%, #048C3B 100%)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              boxShadow: '0 0 16px rgba(6, 199, 85, 0.4)',
-            }}
-          >
-            <MessageSquare size={20} color="#FFFFFF" />
+      <header className="top-navbar">
+        {/* Brand */}
+        <div className="brand-section">
+          <div className="brand-icon">
+            <MessageSquare size={22} color="#FFFFFF" />
           </div>
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ fontWeight: 800, fontSize: 17, letterSpacing: '-0.02em' }}>
-                ROBO LINGO
-              </span>
-              <span
-                style={{
-                  fontSize: 11,
-                  background: 'rgba(255, 255, 255, 0.1)',
-                  padding: '2px 8px',
-                  borderRadius: 6,
-                  color: '#9CA3AF',
-                  fontWeight: 600,
-                }}
-              >
-                Webchat Console
-              </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span className="brand-title">ROBO LINGO</span>
+              <span className="brand-badge">Live Chat Console</span>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#9CA3AF' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12, color: 'var(--text-muted)' }}>
               <span
                 style={{
                   width: 7,
                   height: 7,
                   borderRadius: '50%',
-                  background: '#06C755',
-                  boxShadow: '0 0 8px #06C755',
+                  background: 'var(--line-green)',
+                  boxShadow: '0 0 8px var(--line-green)',
                 }}
               />
-              <span>Connected to LINE OA:</span>
-              <strong style={{ color: '#06C755' }}>@194rgooz</strong>
+              <span>LINE OA Official:</span>
+              <strong style={{ color: 'var(--line-green)' }}>@194rgooz</strong>
+              <span style={{ color: 'var(--border-medium)' }}>•</span>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: '#10B981' }}>
+                <ShieldCheck size={13} />
+                <span>API Verified</span>
+              </span>
             </div>
           </div>
         </div>
 
-        {/* Actions */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          {/* Add LINE OA Button */}
+        {/* Global Actions */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          {/* Add LINE OA Shimmer Button */}
           <button
+            className="shimmer-green-btn"
             onClick={() => setShowQrModal(true)}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 7,
-              background: 'rgba(6, 199, 85, 0.12)',
-              border: '1px solid rgba(6, 199, 85, 0.35)',
-              color: '#06C755',
-              padding: '7px 14px',
-              borderRadius: 10,
-              fontSize: 13,
-              fontWeight: 600,
-              cursor: 'pointer',
-              transition: 'all 0.2s',
-            }}
+            title="สแกน QR Code เพื่อทดลองแชตจากมือถือจริง"
           >
             <QrCode size={16} />
             <span>แอด LINE OA ทดสอบ</span>
           </button>
 
-          {/* Test message simulator */}
+          {/* Simulate Message Button */}
           <button
             onClick={() => setShowSimulateModal(true)}
             style={{
               display: 'flex',
               alignItems: 'center',
-              gap: 6,
-              background: 'rgba(255, 255, 255, 0.06)',
-              border: '1px solid var(--border-subtle)',
-              color: '#E5E7EB',
-              padding: '7px 13px',
-              borderRadius: 10,
+              gap: 7,
+              background: 'rgba(255, 255, 255, 0.05)',
+              border: '1px solid var(--border-medium)',
+              color: 'var(--text-primary)',
+              padding: '8px 14px',
+              borderRadius: 'var(--radius-sm)',
               fontSize: 13,
+              fontWeight: 600,
               cursor: 'pointer',
+              transition: 'all 0.2s ease',
             }}
-            title="จำลองข้อความที่ส่งจากผู้ใช้ LINE"
           >
-            <PlusCircle size={15} color="#06B6D4" />
-            <span>จำลองข้อความเข้า</span>
+            <PlusCircle size={15} color="var(--accent-cyan)" />
+            <span>จำลองแชตเข้า</span>
           </button>
 
           {/* Sound Toggle */}
           <button
             onClick={() => setSoundEnabled(!soundEnabled)}
             style={{
-              background: 'rgba(255, 255, 255, 0.06)',
-              border: '1px solid var(--border-subtle)',
-              color: soundEnabled ? '#06C755' : '#6B7280',
-              padding: '8px',
-              borderRadius: 10,
+              background: soundEnabled ? 'rgba(6, 199, 85, 0.12)' : 'rgba(255, 255, 255, 0.04)',
+              border: `1px solid ${soundEnabled ? 'rgba(6, 199, 85, 0.3)' : 'var(--border-subtle)'}`,
+              color: soundEnabled ? 'var(--line-green)' : 'var(--text-muted)',
+              padding: '9px',
+              borderRadius: 'var(--radius-sm)',
               cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              transition: 'all 0.2s',
             }}
             title={soundEnabled ? 'เปิดเสียงแจ้งเตือนแล้ว' : 'ปิดเสียงแจ้งเตือน'}
           >
             {soundEnabled ? <Bell size={16} /> : <BellOff size={16} />}
           </button>
 
-          {/* Refresh */}
+          {/* Refresh Button */}
           <button
             onClick={() => fetchUsers()}
             disabled={isRefreshing}
             style={{
-              background: 'rgba(255, 255, 255, 0.06)',
+              background: 'rgba(255, 255, 255, 0.04)',
               border: '1px solid var(--border-subtle)',
-              color: '#9CA3AF',
-              padding: '8px',
-              borderRadius: 10,
+              color: 'var(--text-secondary)',
+              padding: '9px',
+              borderRadius: 'var(--radius-sm)',
               cursor: 'pointer',
             }}
-            title="รีเฟรชข้อมูล"
+            title="รีเฟรชข้อมูลล่าสุด"
           >
             <RefreshCw size={16} className={isRefreshing ? 'animate-spin' : ''} />
           </button>
         </div>
       </header>
 
-      {/* Main Content Area: Split View */}
-      <div className="main-content">
-        {/* Left Sidebar: User Conversations List */}
+      {/* Main 3-Column Workspace */}
+      <div className="workspace-grid">
+        {/* COLUMN 1: Conversations Sidebar */}
         <aside className="sidebar">
           <div className="sidebar-header">
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <h2 style={{ fontSize: 16, fontWeight: 700 }}>บทสนทนา</h2>
-                <span className="badge badge-green">
-                  {users.length} {users.length === 1 ? 'ผู้ใช้' : 'ผู้ใช้'}
+            <div className="sidebar-title-row">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <h2 style={{ fontSize: 16, fontWeight: 700 }}>การสนทนา</h2>
+                <span className="badge-pill badge-emerald">
+                  {users.length} คน
                 </span>
               </div>
+
+              {/* Total unread pill */}
+              {users.some((u) => u.unreadCount > 0) && (
+                <span className="badge-unread-count">
+                  {users.reduce((acc, curr) => acc + curr.unreadCount, 0)}
+                </span>
+              )}
             </div>
 
-            {/* Search Input */}
-            <div className="search-input-wrapper">
+            {/* Filter Tabs */}
+            <div className="filter-tabs">
+              <button
+                className={`filter-tab ${activeTab === 'all' ? 'active' : ''}`}
+                onClick={() => setActiveTab('all')}
+              >
+                ทั้งหมด
+              </button>
+              <button
+                className={`filter-tab ${activeTab === 'unread' ? 'active' : ''}`}
+                onClick={() => setActiveTab('unread')}
+              >
+                ยังไม่อ่าน
+                {users.filter((u) => u.unreadCount > 0).length > 0 && (
+                  <span
+                    style={{
+                      width: 6,
+                      height: 6,
+                      borderRadius: '50%',
+                      background: 'var(--accent-rose)',
+                    }}
+                  />
+                )}
+              </button>
+              <button
+                className={`filter-tab ${activeTab === 'replied' ? 'active' : ''}`}
+                onClick={() => setActiveTab('replied')}
+              >
+                ตอบแล้ว
+              </button>
+            </div>
+
+            {/* Search Box with keyboard hint */}
+            <div className="search-wrapper">
               <Search
                 size={16}
-                color="#6B7280"
-                style={{ position: 'absolute', left: 12, pointerEvents: 'none' }}
+                color="var(--text-muted)"
+                style={{ position: 'absolute', left: 14, pointerEvents: 'none' }}
               />
               <input
+                ref={searchInputRef}
                 type="text"
                 className="search-input"
-                placeholder="ค้นหาชื่อ หรือข้อความล่าสุด..."
+                placeholder="ค้นหาชื่อ, ข้อความล่าสุด..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
+              <span className="search-shortcut">⌘K</span>
             </div>
           </div>
 
-          {/* Users List */}
+          {/* Conversations List */}
           <div className="user-list">
             {filteredUsers.length === 0 ? (
               <div
                 style={{
-                  padding: '40px 20px',
+                  padding: '50px 24px',
                   textAlign: 'center',
-                  color: '#6B7280',
-                  fontSize: 13.5,
+                  color: 'var(--text-muted)',
                   display: 'flex',
                   flexDirection: 'column',
                   alignItems: 'center',
-                  gap: 12,
+                  gap: 14,
                 }}
               >
                 <div
                   style={{
-                    width: 54,
-                    height: 54,
+                    width: 58,
+                    height: 58,
                     borderRadius: '50%',
-                    background: 'rgba(255, 255, 255, 0.04)',
+                    background: 'rgba(255, 255, 255, 0.03)',
+                    border: '1px dashed var(--border-medium)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                   }}
                 >
-                  <UserIcon size={24} color="#4B5563" />
+                  <Inbox size={26} color="var(--text-muted)" />
                 </div>
                 <div>
-                  <p style={{ fontWeight: 600, color: '#9CA3AF', marginBottom: 4 }}>
-                    ยังไม่มีข้อความจากผู้ใช้ LINE
+                  <p style={{ fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 4 }}>
+                    {searchQuery ? 'ไม่พบการสนทนาที่ค้นหา' : 'ยังไม่มีบทสนทนา'}
                   </p>
-                  <p style={{ fontSize: 12 }}>
-                    สแกน QR Code หรือกดปุ่ม <strong>"จำลองข้อความเข้า"</strong> ด้านบนเพื่อเริ่มทดสอบ
+                  <p style={{ fontSize: 12.5, lineHeight: 1.5 }}>
+                    สแกน QR Code หรือกดปุ่ม <strong>"จำลองแชตเข้า"</strong> ด้านบนเพื่อทดสอบ
                   </p>
                 </div>
               </div>
@@ -492,7 +552,7 @@ export default function WebChatPage() {
                     className={`user-card ${isSelected ? 'active' : ''}`}
                     onClick={() => setSelectedUser(user)}
                   >
-                    <div className="avatar-wrapper">
+                    <div className="avatar-container">
                       {user.pictureUrl ? (
                         <img
                           src={user.pictureUrl}
@@ -504,7 +564,7 @@ export default function WebChatPage() {
                           {user.displayName.charAt(0).toUpperCase()}
                         </div>
                       )}
-                      <div className="status-dot" />
+                      <div className="avatar-badge-dot" />
                     </div>
 
                     <div style={{ flex: 1, minWidth: 0 }}>
@@ -513,14 +573,14 @@ export default function WebChatPage() {
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'space-between',
-                          marginBottom: 3,
+                          marginBottom: 4,
                         }}
                       >
                         <span
                           style={{
                             fontWeight: isSelected ? 700 : 600,
                             fontSize: 14.5,
-                            color: isSelected ? '#FFFFFF' : '#E5E7EB',
+                            color: isSelected ? '#FFFFFF' : 'var(--text-primary)',
                             whiteSpace: 'nowrap',
                             overflow: 'hidden',
                             textOverflow: 'ellipsis',
@@ -528,7 +588,7 @@ export default function WebChatPage() {
                         >
                           {user.displayName}
                         </span>
-                        <span style={{ fontSize: 11, color: '#6B7280', flexShrink: 0 }}>
+                        <span style={{ fontSize: 11, color: 'var(--text-muted)', flexShrink: 0 }}>
                           {formatTime(user.lastMessageAt)}
                         </span>
                       </div>
@@ -544,7 +604,7 @@ export default function WebChatPage() {
                         <p
                           style={{
                             fontSize: 13,
-                            color: user.unreadCount > 0 ? '#E5E7EB' : '#9CA3AF',
+                            color: user.unreadCount > 0 ? '#FFFFFF' : 'var(--text-secondary)',
                             fontWeight: user.unreadCount > 0 ? 600 : 400,
                             whiteSpace: 'nowrap',
                             overflow: 'hidden',
@@ -556,7 +616,7 @@ export default function WebChatPage() {
                         </p>
 
                         {user.unreadCount > 0 && (
-                          <span className="badge-unread animate-pulse-glow">
+                          <span className="badge-unread-count">
                             {user.unreadCount}
                           </span>
                         )}
@@ -569,13 +629,13 @@ export default function WebChatPage() {
           </div>
         </aside>
 
-        {/* Right Area: Chat Panel */}
+        {/* COLUMN 2: Live Chat Canvas */}
         {selectedUser ? (
-          <main className="chat-panel">
-            {/* Active User Header */}
+          <main className="chat-canvas">
+            {/* Header */}
             <div className="chat-header">
-              <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                <div className="avatar-wrapper" style={{ width: 44, height: 44 }}>
+              <div className="header-user-info">
+                <div className="avatar-container" style={{ width: 44, height: 44 }}>
                   {selectedUser.pictureUrl ? (
                     <img
                       src={selectedUser.pictureUrl}
@@ -587,43 +647,35 @@ export default function WebChatPage() {
                       {selectedUser.displayName.charAt(0).toUpperCase()}
                     </div>
                   )}
-                  <div className="status-dot" />
+                  <div className="avatar-badge-dot" />
                 </div>
+
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <h3 style={{ fontSize: 16, fontWeight: 700, color: '#F9FAFB' }}>
+                    <h3 style={{ fontSize: 16.5, fontWeight: 700, color: 'var(--text-primary)' }}>
                       {selectedUser.displayName}
                     </h3>
-                    <span
-                      style={{
-                        background: 'rgba(6, 199, 85, 0.15)',
-                        color: '#06C755',
-                        fontSize: 11,
-                        padding: '1px 7px',
-                        borderRadius: 6,
-                        fontWeight: 600,
-                      }}
-                    >
-                      LINE User
+                    <span className="badge-pill badge-emerald">
+                      LINE Verified
                     </span>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 2 }}>
                     <span
                       style={{
                         fontSize: 12,
-                        color: '#6B7280',
+                        color: 'var(--text-muted)',
                         fontFamily: 'monospace',
-                        letterSpacing: '-0.02em',
+                        letterSpacing: '-0.01em',
                       }}
                     >
-                      ID: {selectedUser.userId.substring(0, 18)}...
+                      ID: {selectedUser.userId.substring(0, 20)}...
                     </span>
                     <button
                       onClick={() => copyUserId(selectedUser.userId)}
                       style={{
                         background: 'transparent',
                         border: 'none',
-                        color: copiedId ? '#06C755' : '#9CA3AF',
+                        color: copiedId ? 'var(--line-green)' : 'var(--text-muted)',
                         cursor: 'pointer',
                         padding: 2,
                         display: 'flex',
@@ -637,46 +689,89 @@ export default function WebChatPage() {
                 </div>
               </div>
 
-              {/* Status info */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              {/* Right Side Header Controls */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <span
                   style={{
                     fontSize: 12,
-                    color: '#9CA3AF',
+                    color: 'var(--text-muted)',
                     display: 'flex',
                     alignItems: 'center',
                     gap: 6,
+                    marginRight: 8,
                   }}
                 >
                   <Clock size={13} />
-                  <span>กิจกรรมล่าสุด {formatTime(selectedUser.lastMessageAt)}</span>
+                  <span>ล่าสุด {formatTime(selectedUser.lastMessageAt)}</span>
                 </span>
+
+                {/* Toggle Detail Drawer */}
+                <button
+                  onClick={() => setShowDetailDrawer(!showDetailDrawer)}
+                  style={{
+                    background: showDetailDrawer
+                      ? 'rgba(6, 199, 85, 0.12)'
+                      : 'rgba(255, 255, 255, 0.05)',
+                    border: `1px solid ${
+                      showDetailDrawer ? 'rgba(6, 199, 85, 0.3)' : 'var(--border-subtle)'
+                    }`,
+                    color: showDetailDrawer ? 'var(--line-green)' : 'var(--text-secondary)',
+                    padding: '8px 12px',
+                    borderRadius: 'var(--radius-sm)',
+                    fontSize: 12.5,
+                    fontWeight: 600,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                  }}
+                  title="เปิด/ปิด แถบข้อมูลลูกค้า"
+                >
+                  <PanelRight size={15} />
+                  <span>ข้อมูลลูกค้า</span>
+                </button>
               </div>
             </div>
 
-            {/* Chat Messages List */}
-            <div className="chat-messages">
+            {/* Chat Messages Stream */}
+            <div className="chat-stream">
+              <div className="date-separator">
+                <span className="date-pill">บทสนทนาผ่าน LINE Messaging API</span>
+              </div>
+
               {messages.length === 0 ? (
-                <div className="empty-state">
+                <div
+                  style={{
+                    flex: 1,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: 'var(--text-muted)',
+                    textAlign: 'center',
+                    padding: 40,
+                  }}
+                >
                   <div
                     style={{
-                      width: 60,
-                      height: 60,
+                      width: 64,
+                      height: 64,
                       borderRadius: '50%',
-                      background: 'rgba(6, 199, 85, 0.1)',
+                      background: 'var(--line-green-subtle)',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
                       marginBottom: 16,
                     }}
                   >
-                    <Sparkles size={28} color="#06C755" />
+                    <Sparkles size={28} color="var(--line-green)" />
                   </div>
-                  <h4 style={{ fontSize: 16, fontWeight: 600, color: '#E5E7EB', marginBottom: 6 }}>
+                  <h4 style={{ fontSize: 17, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 6 }}>
                     เริ่มต้นการสนทนากับ {selectedUser.displayName}
                   </h4>
-                  <p style={{ fontSize: 13.5, maxWidth: 360, lineHeight: 1.5 }}>
-                    พิมพ์ข้อความด้านล่างเพื่อส่ง Push Message ผ่าน LINE Official Account ไปยังแอป LINE ของผู้ใช้ได้ทันที
+                  <p style={{ fontSize: 13.5, maxWidth: 360, lineHeight: 1.6 }}>
+                    พิมพ์ข้อความด้านล่างเพื่อส่ง Push Message เข้าไปยังแอป LINE ของผู้ใช้ได้ทันที
                   </p>
                 </div>
               ) : (
@@ -685,7 +780,7 @@ export default function WebChatPage() {
                   return (
                     <div
                       key={msg.id}
-                      className={`message-row ${isUser ? 'user' : 'agent'} animate-fade-in`}
+                      className={`message-row ${isUser ? 'user' : 'agent'}`}
                     >
                       {isUser && (
                         <div
@@ -709,7 +804,7 @@ export default function WebChatPage() {
                               style={{
                                 width: '100%',
                                 height: '100%',
-                                background: '#374151',
+                                background: '#334155',
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
@@ -724,19 +819,41 @@ export default function WebChatPage() {
                         </div>
                       )}
 
-                      <div style={{ maxWidth: '100%' }}>
-                        <div className="message-bubble">{msg.text}</div>
+                      <div className="message-bubble-wrapper">
+                        <div className="message-bubble">
+                          {msg.text}
+                          <button
+                            onClick={() => copyMessage(msg.text, msg.id)}
+                            style={{
+                              position: 'absolute',
+                              top: 6,
+                              right: 6,
+                              opacity: copiedMsgId === msg.id ? 1 : 0,
+                              background: 'rgba(0,0,0,0.3)',
+                              border: 'none',
+                              color: '#FFFFFF',
+                              borderRadius: 4,
+                              padding: '2px 4px',
+                              cursor: 'pointer',
+                              fontSize: 10,
+                              transition: 'opacity 0.2s',
+                            }}
+                            className="msg-copy-btn"
+                          >
+                            {copiedMsgId === msg.id ? 'Copied' : 'Copy'}
+                          </button>
+                        </div>
                         <div className="message-meta">
                           <span>{formatTime(msg.createdAt)}</span>
                           {!isUser && (
-                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 2 }}>
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
                               <CheckCheck size={14} color="#A7F3D0" />
-                              <span style={{ fontSize: 10 }}>ส่งไปยัง LINE แล้ว</span>
+                              <span style={{ fontSize: 10 }}>ส่งเข้า LINE แล้ว</span>
                             </span>
                           )}
                           {isUser && (
-                            <span style={{ fontSize: 10, color: '#06C755', fontWeight: 600 }}>
-                              • LINE
+                            <span style={{ fontSize: 10, color: 'var(--line-green)', fontWeight: 700 }}>
+                              • จากผู้ใช้ LINE
                             </span>
                           )}
                         </div>
@@ -748,34 +865,60 @@ export default function WebChatPage() {
               <div ref={messagesEndRef} />
             </div>
 
-            {/* Chat Input Container */}
-            <div className="chat-input-container">
+            {/* Composer / Rich Input Area */}
+            <div className="composer-container">
               {/* Quick Reply Pills */}
-              <div className="quick-replies">
+              <div className="quick-replies-carousel">
                 {quickReplies.map((reply, idx) => (
                   <button
                     key={idx}
-                    className="quick-reply-pill"
+                    className="quick-reply-chip"
                     onClick={() => handleSendMessage(reply)}
                     disabled={isSending}
                   >
-                    {reply}
+                    <span>{reply}</span>
                   </button>
                 ))}
               </div>
 
-              {/* Textarea + Send Button */}
-              <form
-                className="chat-input-bar"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  handleSendMessage();
-                }}
-              >
+              {/* Emoji quick bar if toggled */}
+              {showEmojiPicker && (
+                <div
+                  style={{
+                    display: 'flex',
+                    gap: 8,
+                    marginBottom: 10,
+                    background: 'var(--bg-surface-elevated)',
+                    padding: '8px 14px',
+                    borderRadius: 'var(--radius-md)',
+                    border: '1px solid var(--border-medium)',
+                  }}
+                >
+                  {emojis.map((em, i) => (
+                    <button
+                      key={i}
+                      onClick={() => setInputText((prev) => prev + em)}
+                      style={{
+                        background: 'transparent',
+                        border: 'none',
+                        fontSize: 18,
+                        cursor: 'pointer',
+                        padding: '2px 4px',
+                      }}
+                    >
+                      {em}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Composer Box */}
+              <div className="composer-box">
                 <textarea
-                  className="chat-textarea"
-                  rows={1}
-                  placeholder={`พิมพ์ข้อความตอบกลับ ${selectedUser.displayName} (กด Enter เพื่อส่ง)...`}
+                  ref={textareaRef}
+                  className="composer-textarea"
+                  rows={2}
+                  placeholder={`ตอบกลับ ${selectedUser.displayName}... (กด Enter เพื่อส่ง, Shift + Enter ขึ้นบรรทัดใหม่)`}
                   value={inputText}
                   onChange={(e) => setInputText(e.target.value)}
                   onKeyDown={(e) => {
@@ -786,71 +929,82 @@ export default function WebChatPage() {
                   }}
                   disabled={isSending}
                 />
-                <button
-                  type="submit"
-                  className="send-button"
-                  disabled={!inputText.trim() || isSending}
-                  title="ส่งข้อความ (Enter)"
-                >
-                  <Send size={18} />
-                </button>
-              </form>
+
+                <div className="composer-bottom-bar">
+                  <div className="composer-actions-left">
+                    <button
+                      type="button"
+                      className="action-btn"
+                      onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                      title="ใส่อิโมจิ"
+                    >
+                      <Smile size={18} />
+                    </button>
+                    <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>
+                      Enter เพื่อส่ง
+                    </span>
+                  </div>
+
+                  <button
+                    type="button"
+                    className="send-btn-pro"
+                    onClick={() => handleSendMessage()}
+                    disabled={!inputText.trim() || isSending}
+                    title="ส่งข้อความ Push เข้า LINE"
+                  >
+                    <span>ส่งข้อความ</span>
+                    <Send size={15} />
+                  </button>
+                </div>
+              </div>
             </div>
           </main>
         ) : (
-          /* Empty State when no user is selected */
-          <main className="chat-panel" style={{ alignItems: 'center', justifyContent: 'center' }}>
-            <div className="empty-state">
+          /* Empty State when no conversation is selected */
+          <main className="chat-canvas" style={{ alignItems: 'center', justifyContent: 'center' }}>
+            <div
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                textAlign: 'center',
+                padding: 40,
+                maxWidth: 480,
+              }}
+            >
               <div
                 style={{
-                  width: 80,
-                  height: 80,
-                  borderRadius: 24,
+                  width: 88,
+                  height: 88,
+                  borderRadius: 26,
                   background: 'rgba(6, 199, 85, 0.08)',
-                  border: '1px solid rgba(6, 199, 85, 0.2)',
+                  border: '1px solid rgba(6, 199, 85, 0.25)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   marginBottom: 24,
-                  boxShadow: '0 0 30px rgba(6, 199, 85, 0.1)',
+                  boxShadow: '0 0 35px rgba(6, 199, 85, 0.15)',
                 }}
               >
-                <MessageSquare size={38} color="#06C755" />
+                <MessageSquare size={42} color="var(--line-green)" />
               </div>
-              <h3 style={{ fontSize: 22, fontWeight: 700, color: '#F9FAFB', marginBottom: 8 }}>
+              <h3 style={{ fontSize: 24, fontWeight: 800, color: 'var(--text-primary)', marginBottom: 10 }}>
                 ยินดีต้อนรับสู่ Webchat Console
               </h3>
               <p
                 style={{
                   fontSize: 14.5,
-                  maxWidth: 460,
-                  lineHeight: 1.6,
-                  color: '#9CA3AF',
-                  marginBottom: 28,
+                  lineHeight: 1.65,
+                  color: 'var(--text-secondary)',
+                  marginBottom: 30,
                 }}
               >
-                เลือกผู้ใช้จากแถบด้านซ้ายเพื่อเปิดดูประวัติการสนทนาและส่งข้อความตอบกลับ หรือแอด LINE OA
-                เพื่อทดลองส่งข้อความเข้ามาสดๆ ได้เลยครับ
+                เลือกลูกค้าจากแถบด้านซ้ายเพื่อเปิดดูประวัติและพิมพ์ข้อความตอบกลับ หรือแอด LINE OA
+                เพื่อเริ่มส่งข้อความสดๆ จากแอป LINE เข้ามาได้ทันทีครับ
               </p>
 
-              <div style={{ display: 'flex', gap: 12 }}>
-                <button
-                  onClick={() => setShowQrModal(true)}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 8,
-                    background: 'var(--line-green)',
-                    color: '#FFFFFF',
-                    border: 'none',
-                    padding: '10px 20px',
-                    borderRadius: 12,
-                    fontSize: 14,
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    boxShadow: '0 4px 14px rgba(6, 199, 85, 0.35)',
-                  }}
-                >
+              <div style={{ display: 'flex', gap: 14 }}>
+                <button className="shimmer-green-btn" onClick={() => setShowQrModal(true)}>
                   <QrCode size={18} />
                   <span>สแกน QR แอด LINE OA</span>
                 </button>
@@ -861,62 +1015,187 @@ export default function WebChatPage() {
                     display: 'flex',
                     alignItems: 'center',
                     gap: 8,
-                    background: 'rgba(255, 255, 255, 0.06)',
-                    border: '1px solid var(--border-subtle)',
-                    color: '#E5E7EB',
+                    background: 'rgba(255, 255, 255, 0.05)',
+                    border: '1px solid var(--border-medium)',
+                    color: 'var(--text-primary)',
                     padding: '10px 18px',
-                    borderRadius: 12,
+                    borderRadius: 'var(--radius-sm)',
                     fontSize: 14,
-                    fontWeight: 500,
+                    fontWeight: 600,
                     cursor: 'pointer',
                   }}
                 >
-                  <PlusCircle size={18} color="#06B6D4" />
-                  <span>ทดสอบด้วยข้อความจำลอง</span>
+                  <PlusCircle size={17} color="var(--accent-cyan)" />
+                  <span>ทดสอบจำลองข้อความ</span>
                 </button>
               </div>
             </div>
           </main>
         )}
+
+        {/* COLUMN 3: Customer Detail Drawer (Collapsible) */}
+        {selectedUser && showDetailDrawer && (
+          <aside className="detail-drawer">
+            {/* Top drawer header */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)' }}>
+                Customer Intelligence
+              </span>
+              <button
+                onClick={() => setShowDetailDrawer(false)}
+                style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Profile Card */}
+            <div className="drawer-profile-card">
+              <div className="avatar-container" style={{ width: 72, height: 72, marginBottom: 14 }}>
+                {selectedUser.pictureUrl ? (
+                  <img
+                    src={selectedUser.pictureUrl}
+                    alt={selectedUser.displayName}
+                    className="avatar-img"
+                  />
+                ) : (
+                  <div className="avatar-fallback" style={{ fontSize: 26 }}>
+                    {selectedUser.displayName.charAt(0).toUpperCase()}
+                  </div>
+                )}
+                <div className="avatar-badge-dot" style={{ width: 16, height: 16 }} />
+              </div>
+
+              <h4 style={{ fontSize: 17, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 4 }}>
+                {selectedUser.displayName}
+              </h4>
+              <span className="badge-pill badge-emerald" style={{ marginBottom: 12 }}>
+                LINE Platform User
+              </span>
+
+              {selectedUser.statusMessage && (
+                <p style={{ fontSize: 12.5, color: 'var(--text-secondary)', fontStyle: 'italic', marginBottom: 12 }}>
+                  "{selectedUser.statusMessage}"
+                </p>
+              )}
+
+              <div
+                style={{
+                  width: '100%',
+                  background: 'rgba(0, 0, 0, 0.25)',
+                  padding: '10px 12px',
+                  borderRadius: 'var(--radius-sm)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  border: '1px solid var(--border-subtle)',
+                }}
+              >
+                <span style={{ fontSize: 11, fontFamily: 'monospace', color: 'var(--text-muted)' }}>
+                  {selectedUser.userId.substring(0, 16)}...
+                </span>
+                <button
+                  onClick={() => copyUserId(selectedUser.userId)}
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    color: copiedId ? 'var(--line-green)' : 'var(--text-secondary)',
+                    cursor: 'pointer',
+                    fontSize: 12,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 4,
+                  }}
+                >
+                  {copiedId ? <Check size={13} /> : <Copy size={13} />}
+                  <span>{copiedId ? 'Copied' : 'Copy'}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Statistics */}
+            <div>
+              <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 10, display: 'block' }}>
+                สถิติการสนทนา
+              </span>
+              <div className="drawer-stat-grid">
+                <div className="drawer-stat-box">
+                  <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>ข้อความในห้องนี้</span>
+                  <strong style={{ fontSize: 18, color: 'var(--text-primary)' }}>
+                    {messages.length}
+                  </strong>
+                </div>
+                <div className="drawer-stat-box">
+                  <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>สถานะ</span>
+                  <strong style={{ fontSize: 14, color: 'var(--line-green)' }}>
+                    Active
+                  </strong>
+                </div>
+              </div>
+            </div>
+
+            {/* Channel Info */}
+            <div
+              style={{
+                background: 'var(--bg-surface-card)',
+                border: '1px solid var(--border-subtle)',
+                borderRadius: 'var(--radius-md)',
+                padding: '16px',
+              }}
+            >
+              <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 10, display: 'block' }}>
+                ข้อมูลช่องทาง (Channel)
+              </span>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: 12.5 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: 'var(--text-muted)' }}>Channel ID:</span>
+                  <span style={{ color: 'var(--text-primary)', fontFamily: 'monospace' }}>2011444753</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: 'var(--text-muted)' }}>LINE OA ID:</span>
+                  <span style={{ color: 'var(--line-green)', fontWeight: 700 }}>@194rgooz</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: 'var(--text-muted)' }}>Webhook:</span>
+                  <span style={{ color: '#10B981' }}>Connected</span>
+                </div>
+              </div>
+            </div>
+          </aside>
+        )}
       </div>
 
       {/* QR Code Modal */}
       {showQrModal && (
-        <div className="modal-backdrop" onClick={() => setShowQrModal(false)}>
-          <div className="modal-card" onClick={(e) => e.stopPropagation()}>
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                marginBottom: 20,
-              }}
-            >
+        <div className="modal-backdrop-pro" onClick={() => setShowQrModal(false)}>
+          <div className="modal-dialog-pro" onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <div
                   style={{
-                    width: 32,
-                    height: 32,
-                    borderRadius: 8,
-                    background: '#06C755',
+                    width: 36,
+                    height: 36,
+                    borderRadius: 10,
+                    background: 'var(--line-green)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                   }}
                 >
-                  <QrCode size={18} color="#FFF" />
+                  <QrCode size={20} color="#FFF" />
                 </div>
-                <h3 style={{ fontSize: 17, fontWeight: 700 }}>แอด LINE Official Account</h3>
+                <div>
+                  <h3 style={{ fontSize: 17, fontWeight: 700, color: 'var(--text-primary)' }}>
+                    แอด LINE Official Account
+                  </h3>
+                  <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                    สแกนเพื่อทดลองส่งข้อความจริง
+                  </span>
+                </div>
               </div>
               <button
                 onClick={() => setShowQrModal(false)}
-                style={{
-                  background: 'transparent',
-                  border: 'none',
-                  color: '#9CA3AF',
-                  cursor: 'pointer',
-                  padding: 4,
-                }}
+                style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
               >
                 <X size={20} />
               </button>
@@ -933,7 +1212,6 @@ export default function WebChatPage() {
                 marginBottom: 20,
               }}
             >
-              {/* QR Code image via Google charts API for @194rgooz */}
               <img
                 src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=https://line.me/R/ti/p/@194rgooz"
                 alt="LINE OA QR Code"
@@ -942,8 +1220,8 @@ export default function WebChatPage() {
               <span
                 style={{
                   marginTop: 12,
-                  fontSize: 16,
-                  fontWeight: 700,
+                  fontSize: 17,
+                  fontWeight: 800,
                   color: '#111827',
                   letterSpacing: '0.02em',
                 }}
@@ -951,7 +1229,7 @@ export default function WebChatPage() {
                 LINE ID: @194rgooz
               </span>
               <span style={{ fontSize: 12, color: '#6B7280', marginTop: 2 }}>
-                สแกนผ่านแอป LINE บนโทรศัพท์มือถือ
+                เปิดแอป LINE บนมือถือแล้วสแกนเพื่อเริ่มแชต
               </span>
             </div>
 
@@ -966,17 +1244,17 @@ export default function WebChatPage() {
                   alignItems: 'center',
                   justifyContent: 'center',
                   gap: 8,
-                  background: '#06C755',
+                  background: 'var(--line-green)',
                   color: '#FFFFFF',
                   padding: '11px',
                   borderRadius: 10,
                   fontSize: 14,
-                  fontWeight: 600,
+                  fontWeight: 700,
                   textDecoration: 'none',
                 }}
               >
                 <ExternalLink size={16} />
-                <span>เปิดลิงก์แอดเพื่อน</span>
+                <span>เปิดลิงก์แอดเพื่อนบน LINE</span>
               </a>
               <button
                 onClick={() => setShowQrModal(false)}
@@ -999,59 +1277,48 @@ export default function WebChatPage() {
 
       {/* Simulate Message Modal */}
       {showSimulateModal && (
-        <div className="modal-backdrop" onClick={() => setShowSimulateModal(false)}>
-          <div className="modal-card" onClick={(e) => e.stopPropagation()}>
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                marginBottom: 16,
-              }}
-            >
+        <div className="modal-backdrop-pro" onClick={() => setShowSimulateModal(false)}>
+          <div className="modal-dialog-pro" onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <PlusCircle size={20} color="#06B6D4" />
-                <h3 style={{ fontSize: 17, fontWeight: 700 }}>จำลองข้อความเข้าจาก LINE</h3>
+                <PlusCircle size={20} color="var(--accent-cyan)" />
+                <h3 style={{ fontSize: 17, fontWeight: 700, color: 'var(--text-primary)' }}>
+                  จำลองข้อความเข้าจาก LINE
+                </h3>
               </div>
               <button
                 onClick={() => setShowSimulateModal(false)}
-                style={{
-                  background: 'transparent',
-                  border: 'none',
-                  color: '#9CA3AF',
-                  cursor: 'pointer',
-                }}
+                style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
               >
                 <X size={20} />
               </button>
             </div>
 
-            <p style={{ fontSize: 13, color: '#9CA3AF', marginBottom: 18, lineHeight: 1.5 }}>
-              ฟังก์ชันนี้จำลองกรณีมีผู้ใช้พิมพ์ส่งข้อความหา LINE OA เพื่อให้คุณทดสอบฟีเจอร์การรับข้อความและเลือกตอบกลับได้ทันที
+            <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 18, lineHeight: 1.5 }}>
+              ฟังก์ชันนี้จำลองกรณีผู้ใช้พิมพ์ส่งข้อความหา LINE OA เพื่อทดสอบฟีเจอร์การรับข้อความและเลือกตอบกลับ
             </p>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginBottom: 20 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginBottom: 22 }}>
               <div>
-                <label style={{ display: 'block', fontSize: 12.5, color: '#D1D5DB', marginBottom: 6 }}>
+                <label style={{ display: 'block', fontSize: 12.5, color: 'var(--text-secondary)', marginBottom: 6 }}>
                   ชื่อผู้ส่ง (LINE Display Name)
                 </label>
                 <input
                   type="text"
                   className="search-input"
-                  style={{ paddingLeft: 12 }}
                   value={simName}
                   onChange={(e) => setSimName(e.target.value)}
-                  placeholder="เช่น Somchai, Kitty, John Doe"
+                  placeholder="เช่น คุณกิตติพัฒน์"
                 />
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: 12.5, color: '#D1D5DB', marginBottom: 6 }}>
+                <label style={{ display: 'block', fontSize: 12.5, color: 'var(--text-secondary)', marginBottom: 6 }}>
                   ข้อความที่ส่ง
                 </label>
                 <textarea
                   className="search-input"
-                  style={{ paddingLeft: 12, minHeight: 80, resize: 'vertical' }}
+                  style={{ minHeight: 80, resize: 'vertical' }}
                   value={simText}
                   onChange={(e) => setSimText(e.target.value)}
                   placeholder="พิมพ์ข้อความทดสอบ..."
@@ -1064,9 +1331,9 @@ export default function WebChatPage() {
                 onClick={() => setShowSimulateModal(false)}
                 style={{
                   padding: '9px 18px',
-                  background: 'rgba(255, 255, 255, 0.08)',
+                  background: 'rgba(255, 255, 255, 0.06)',
                   border: '1px solid var(--border-subtle)',
-                  color: '#D1D5DB',
+                  color: 'var(--text-secondary)',
                   borderRadius: 10,
                   fontSize: 13.5,
                   cursor: 'pointer',
@@ -1083,9 +1350,9 @@ export default function WebChatPage() {
                   color: '#FFFFFF',
                   borderRadius: 10,
                   fontSize: 13.5,
-                  fontWeight: 600,
+                  fontWeight: 700,
                   cursor: 'pointer',
-                  boxShadow: '0 4px 12px rgba(6, 182, 212, 0.3)',
+                  boxShadow: '0 4px 14px rgba(6, 182, 212, 0.35)',
                 }}
               >
                 ส่งข้อความจำลอง
