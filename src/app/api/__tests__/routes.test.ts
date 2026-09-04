@@ -144,5 +144,44 @@ describe('API Route Handlers (src/app/api)', () => {
       const data = await res.json();
       expect(data.status).toBe('ok');
     });
+
+    it('POST /api/line/webhook should accept sticker events and record [สติกเกอร์]', async () => {
+      const payload = {
+        events: [
+          {
+            type: 'message',
+            timestamp: Date.now(),
+            source: { type: 'user', userId: 'U_webhook_sticker_test' },
+            message: { id: '2', type: 'sticker', packageId: '1', stickerId: '1' },
+          },
+        ],
+      };
+      const rawBody = JSON.stringify(payload);
+      const validSignature = crypto
+        .createHmac('sha256', secret)
+        .update(rawBody)
+        .digest('base64');
+
+      vi.spyOn(global, 'fetch').mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          displayName: 'Sticker User',
+        }),
+      } as any);
+
+      const req = new NextRequest('http://localhost:3000/api/line/webhook', {
+        method: 'POST',
+        headers: {
+          'x-line-signature': validSignature,
+        },
+        body: rawBody,
+      });
+
+      const res = await postWebhook(req);
+      expect(res.status).toBe(200);
+
+      const data = await res.json();
+      expect(data.status).toBe('ok');
+    });
   });
 });
