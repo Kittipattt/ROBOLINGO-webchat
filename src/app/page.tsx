@@ -102,13 +102,38 @@ export default function WebChatPage() {
               const bestPictureUrl = u.pictureUrl || existing?.pictureUrl;
               const bestStatusMessage = u.statusMessage || existing?.statusMessage;
 
+              // Monotonic timestamp protection: never allow an older poll to overwrite a newer message
+              let bestLastMessage = existing?.lastMessage || u.lastMessage;
+              let bestLastMessageAt = existing?.lastMessageAt || u.lastMessageAt;
+
+              if ((u.lastMessageAt || 0) >= (existing?.lastMessageAt || 0)) {
+                bestLastMessage = u.lastMessage;
+                bestLastMessageAt = u.lastMessageAt;
+              }
+
+              // Unread count tracking:
+              // If user is currently active/open, keep unreadCount at 0.
+              // Otherwise, adopt incoming unreadCount or increment if a newer message arrived.
+              const isCurrentActive = selectedUserId === u.userId;
+              let bestUnreadCount = 0;
+              if (!isCurrentActive) {
+                if (existing && (u.lastMessageAt || 0) > (existing.lastMessageAt || 0)) {
+                  bestUnreadCount = Math.max(u.unreadCount || 1, (existing.unreadCount || 0) + 1);
+                } else {
+                  bestUnreadCount =
+                    u.unreadCount !== undefined ? u.unreadCount : existing?.unreadCount || 0;
+                }
+              }
+
               map.set(u.userId, {
                 ...existing,
                 ...u,
                 displayName: bestDisplayName,
                 pictureUrl: bestPictureUrl,
                 statusMessage: bestStatusMessage,
-                unreadCount: existing ? existing.unreadCount : u.unreadCount,
+                lastMessage: bestLastMessage,
+                lastMessageAt: bestLastMessageAt,
+                unreadCount: bestUnreadCount,
               });
             });
             const merged = Array.from(map.values()).sort((a, b) => b.lastMessageAt - a.lastMessageAt);
@@ -193,6 +218,28 @@ export default function WebChatPage() {
               }
             }
             lastMessageCountRef.current = merged.length;
+
+            // Keep sidebar's lastMessage in sync with the true newest message in chat
+            if (merged.length > 0) {
+              const latestChat = merged[merged.length - 1];
+              setUsers((prevUsers) => {
+                const target = prevUsers.find((u) => u.userId === userId);
+                if (target && latestChat.createdAt >= (target.lastMessageAt || 0)) {
+                  const updated = prevUsers
+                    .map((u) =>
+                      u.userId === userId
+                        ? { ...u, lastMessage: latestChat.text, lastMessageAt: latestChat.createdAt }
+                        : u
+                    )
+                    .sort((a, b) => b.lastMessageAt - a.lastMessageAt);
+                  try {
+                    localStorage.setItem('webchat_users_cache', JSON.stringify(updated));
+                  } catch {}
+                  return updated;
+                }
+                return prevUsers;
+              });
+            }
 
             try {
               localStorage.setItem(`webchat_msgs_${userId}`, JSON.stringify(merged));
@@ -298,12 +345,13 @@ export default function WebChatPage() {
     setShowEmojiPicker(false);
 
     const tempId = `temp_${Date.now()}`;
+    const now = Date.now();
     const optimisticMessage: ChatMessage = {
       id: tempId,
       userId: targetUserId,
       sender: 'agent',
       text,
-      createdAt: Date.now(),
+      createdAt: now,
       status: 'sending',
     };
 
@@ -311,6 +359,21 @@ export default function WebChatPage() {
       ...prevMap,
       [targetUserId]: [...(prevMap[targetUserId] || []), optimisticMessage],
     }));
+
+    // Immediately update sidebar's last message with outbound message
+    setUsers((prevUsers) => {
+      const updated = prevUsers
+        .map((u) =>
+          u.userId === targetUserId
+            ? { ...u, lastMessage: text, lastMessageAt: now }
+            : u
+        )
+        .sort((a, b) => b.lastMessageAt - a.lastMessageAt);
+      try {
+        localStorage.setItem('webchat_users_cache', JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
 
     try {
       const res = await fetch('/api/messages', {
@@ -374,6 +437,25 @@ export default function WebChatPage() {
     setTimeout(() => setCopiedId(false), 2000);
   };
 
+  const handleSelectUser = useCallback((user: LineUser) => {
+    setSelectedUser(user);
+    setUsers((prev) =>
+      prev.map((u) => (u.userId === user.userId ? { ...u, unreadCount: 0 } : u))
+    );
+    try {
+      const cached = localStorage.getItem('webchat_users_cache');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed)) {
+          const updated = parsed.map((u: LineUser) =>
+            u.userId === user.userId ? { ...u, unreadCount: 0 } : u
+          );
+          localStorage.setItem('webchat_users_cache', JSON.stringify(updated));
+        }
+      }
+    } catch {}
+  }, []);
+
   return (
     <div className="app-container">
       <TopNavbar
@@ -388,7 +470,7 @@ export default function WebChatPage() {
         <Sidebar
           users={users}
           selectedUser={selectedUser}
-          onSelectUser={setSelectedUser}
+          onSelectUser={handleSelectUser}
           activeTab={activeTab}
           onTabChange={setActiveTab}
           searchQuery={searchQuery}

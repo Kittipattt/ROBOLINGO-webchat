@@ -151,10 +151,11 @@ export function Sidebar({
         ) : (
           filteredUsers.map((user) => {
             const isSelected = selectedUser?.userId === user.userId;
+            const isUnread = (user.unreadCount || 0) > 0;
             return (
               <button
                 key={user.userId}
-                className={`user-card ${isSelected ? 'active' : ''}`}
+                className={`user-card ${isSelected ? 'active' : ''} ${isUnread ? 'unread' : ''}`}
                 onClick={() => onSelectUser(user)}
               >
                 <div className="avatar-container">
