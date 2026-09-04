@@ -90,9 +90,24 @@ export default function WebChatPage() {
             prev.forEach((u) => map.set(u.userId, u));
             incoming.forEach((u) => {
               const existing = map.get(u.userId);
+
+              // Never overwrite a real display name with 'LINE User'
+              const bestDisplayName =
+                u.displayName && u.displayName !== 'LINE User'
+                  ? u.displayName
+                  : existing?.displayName && existing.displayName !== 'LINE User'
+                  ? existing.displayName
+                  : u.displayName || 'LINE User';
+
+              const bestPictureUrl = u.pictureUrl || existing?.pictureUrl;
+              const bestStatusMessage = u.statusMessage || existing?.statusMessage;
+
               map.set(u.userId, {
                 ...existing,
                 ...u,
+                displayName: bestDisplayName,
+                pictureUrl: bestPictureUrl,
+                statusMessage: bestStatusMessage,
                 unreadCount: existing ? existing.unreadCount : u.unreadCount,
               });
             });
@@ -101,6 +116,37 @@ export default function WebChatPage() {
               localStorage.setItem('webchat_users_cache', JSON.stringify(merged));
             } catch {}
             return merged;
+          });
+
+          // Dynamically sync selectedUser if profile or name was upgraded
+          setSelectedUser((curr) => {
+            if (!curr) return null;
+            const match = incoming.find((u) => u.userId === curr.userId);
+            if (match) {
+              const updatedName =
+                match.displayName && match.displayName !== 'LINE User'
+                  ? match.displayName
+                  : curr.displayName;
+              const updatedPic = match.pictureUrl || curr.pictureUrl;
+              const updatedStatus = match.statusMessage || curr.statusMessage;
+
+              if (
+                updatedName !== curr.displayName ||
+                updatedPic !== curr.pictureUrl ||
+                updatedStatus !== curr.statusMessage ||
+                match.lastMessageAt !== curr.lastMessageAt
+              ) {
+                return {
+                  ...curr,
+                  displayName: updatedName,
+                  pictureUrl: updatedPic,
+                  statusMessage: updatedStatus,
+                  lastMessage: match.lastMessage,
+                  lastMessageAt: match.lastMessageAt,
+                };
+              }
+            }
+            return curr;
           });
         }
       }

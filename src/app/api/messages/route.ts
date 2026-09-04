@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getMessages, addMessage } from '@/lib/db';
-import { sendLinePushMessage } from '@/lib/line';
+import { getMessages, addMessage, getUserById, upsertUser } from '@/lib/db';
+import { sendLinePushMessage, getLineUserProfile } from '@/lib/line';
 
 export const dynamic = 'force-dynamic';
 
@@ -41,6 +41,26 @@ export async function POST(req: NextRequest) {
       sender: 'agent',
       text: text.trim(),
     });
+
+    // 3. Ensure profile is enriched if previously unknown or generic
+    const existingUser = getUserById(userId);
+    if (
+      (!existingUser || existingUser.displayName === 'LINE User' || !existingUser.pictureUrl) &&
+      userId.startsWith('U') &&
+      !userId.includes('test')
+    ) {
+      try {
+        const profile = await getLineUserProfile(userId);
+        if (profile?.displayName && profile.displayName !== 'LINE User') {
+          upsertUser({
+            userId,
+            displayName: profile.displayName,
+            pictureUrl: profile.pictureUrl,
+            statusMessage: profile.statusMessage,
+          });
+        }
+      } catch {}
+    }
 
     return NextResponse.json({ success: true, message });
   } catch (error: any) {

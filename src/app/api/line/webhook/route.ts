@@ -62,7 +62,7 @@ export async function POST(req: NextRequest) {
         // Update/create user in DB
         upsertUser({
           userId,
-          displayName: profile?.displayName || 'LINE User',
+          displayName: profile?.displayName,
           pictureUrl: profile?.pictureUrl,
           statusMessage: profile?.statusMessage,
           lastMessage: text,
@@ -85,7 +85,7 @@ export async function POST(req: NextRequest) {
         const profile = await getLineUserProfile(userId);
         upsertUser({
           userId,
-          displayName: profile?.displayName || 'LINE User',
+          displayName: profile?.displayName,
           pictureUrl: profile?.pictureUrl,
           statusMessage: profile?.statusMessage,
           lastMessage: 'Added LINE OA as friend',

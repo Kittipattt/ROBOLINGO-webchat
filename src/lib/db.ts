@@ -89,9 +89,19 @@ export function upsertUser(data: {
   const existing = db.users[data.userId];
 
   const now = Date.now();
+
+  // Preserve real displayName! Never downgrade to 'LINE User' if we already know the real name.
+  let displayName = data.displayName;
+  if (!displayName || displayName === 'LINE User') {
+    displayName =
+      existing?.displayName && existing.displayName !== 'LINE User'
+        ? existing.displayName
+        : displayName || 'LINE User';
+  }
+
   const updatedUser: LineUser = {
     userId: data.userId,
-    displayName: data.displayName ?? existing?.displayName ?? 'LINE User',
+    displayName,
     pictureUrl: data.pictureUrl ?? existing?.pictureUrl,
     statusMessage: data.statusMessage ?? existing?.statusMessage,
     lastMessage: data.lastMessage ?? existing?.lastMessage ?? '',

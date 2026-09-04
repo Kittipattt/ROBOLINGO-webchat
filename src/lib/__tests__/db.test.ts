@@ -92,6 +92,24 @@ describe('Database & Persistence Module (src/lib/db.ts)', () => {
       expect(users[0].userId).toBe('U_new');
       expect(users[1].userId).toBe('U_old');
     });
+
+    it('should never downgrade an existing real displayName to LINE User', () => {
+      upsertUser({
+        userId: 'U_jajah',
+        displayName: 'Ja_jah 🏢',
+        pictureUrl: 'https://example.com/avatar.jpg',
+      });
+
+      // Subsequent update with missing or default 'LINE User' displayName
+      const updated = upsertUser({
+        userId: 'U_jajah',
+        displayName: 'LINE User',
+        lastMessage: 'ขอซื้ออโวคาโด้',
+      });
+
+      expect(updated.displayName).toBe('Ja_jah 🏢');
+      expect(updated.pictureUrl).toBe('https://example.com/avatar.jpg');
+    });
   });
 
   describe('Message Management', () => {
