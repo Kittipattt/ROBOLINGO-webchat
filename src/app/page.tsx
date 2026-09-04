@@ -85,7 +85,13 @@ export default function WebChatPage() {
   const fetchUsers = useCallback(async (silent = false) => {
     if (!silent) setIsRefreshing(true);
     try {
-      const res = await fetch('/api/users');
+      const res = await fetch(`/api/users?_t=${Date.now()}`, {
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache',
+          Pragma: 'no-cache',
+        },
+      });
       if (res.ok) {
         const data = await res.json();
         const incoming: LineUser[] = data.users || [];
@@ -165,6 +171,39 @@ export default function WebChatPage() {
             return merged;
           });
 
+          // Sync any new incoming lastMessage directly into chat messages so UI never lags behind sidebar
+          incoming.forEach((u) => {
+            if (u.lastMessage && u.lastMessageAt) {
+              setMessagesByUserId((prevMap) => {
+                const list = prevMap[u.userId] || [];
+                const exists = list.some(
+                  (m) =>
+                    (m.text === u.lastMessage && Math.abs(m.createdAt - (u.lastMessageAt || 0)) < 5000) ||
+                    m.createdAt === u.lastMessageAt
+                );
+                if (!exists) {
+                  const synMsg: ChatMessage = {
+                    id: `msg_${u.lastMessageAt}_sync`,
+                    userId: u.userId,
+                    sender: 'user',
+                    text: u.lastMessage!,
+                    createdAt: u.lastMessageAt!,
+                    status: 'sent',
+                  };
+                  const updated = [...list, synMsg].sort((a, b) => a.createdAt - b.createdAt);
+                  try {
+                    localStorage.setItem(`webchat_msgs_${u.userId}`, JSON.stringify(updated));
+                  } catch {}
+                  return {
+                    ...prevMap,
+                    [u.userId]: updated,
+                  };
+                }
+                return prevMap;
+              });
+            }
+          });
+
           // Dynamically sync selectedUser if profile or name was upgraded
           setSelectedUser((curr) => {
             if (!curr) return null;
@@ -208,7 +247,13 @@ export default function WebChatPage() {
   const fetchMessages = useCallback(
     async (userId: string, silent = false) => {
       try {
-        const res = await fetch(`/api/messages?userId=${encodeURIComponent(userId)}`);
+        const res = await fetch(`/api/messages?userId=${encodeURIComponent(userId)}&_t=${Date.now()}`, {
+          cache: 'no-store',
+          headers: {
+            'Cache-Control': 'no-cache',
+            Pragma: 'no-cache',
+          },
+        });
         if (res.ok) {
           const data = await res.json();
           const incoming: ChatMessage[] = (data.messages || []).filter(
@@ -243,7 +288,26 @@ export default function WebChatPage() {
             prevForUser.forEach((m) => map.set(m.id, m));
             incoming.forEach((m) => map.set(m.id, m));
 
-            const merged = Array.from(map.values()).sort((a, b) => a.createdAt - b.createdAt);
+            // Clean up synthetic messages that now have official server messages
+            const allItems = Array.from(map.values()).sort((a, b) => a.createdAt - b.createdAt);
+            const deduplicated: ChatMessage[] = [];
+            for (const item of allItems) {
+              if (item.id.includes('_sync') || item.id.includes('_sel')) {
+                const hasOfficial = allItems.some(
+                  (other) =>
+                    !other.id.includes('_sync') &&
+                    !other.id.includes('_sel') &&
+                    other.text === item.text &&
+                    Math.abs(other.createdAt - item.createdAt) < 5000
+                );
+                if (hasOfficial) {
+                  continue; // Official record present, drop synthetic placeholder
+                }
+              }
+              deduplicated.push(item);
+            }
+
+            const merged = deduplicated;
 
             if (merged.length === 0) {
               return prevMap;
@@ -516,18 +580,44 @@ export default function WebChatPage() {
     // Instantly load cached messages from localStorage so conversation renders without delay
     try {
       const raw = localStorage.getItem(`webchat_msgs_${user.userId}`);
+      let localMsgs: ChatMessage[] = [];
       if (raw) {
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed)) {
-          const cleaned = parsed.filter((m: ChatMessage) => m.userId === user.userId);
-          setMessagesByUserId((prevMap) => ({
-            ...prevMap,
-            [user.userId]: cleaned,
-          }));
-          lastMessageCountRef.current = cleaned.length;
+          localMsgs = parsed.filter((m: ChatMessage) => m.userId === user.userId);
         }
       }
+
+      // If user has a latest message, ensure it is in localMsgs right now
+      if (user.lastMessage && user.lastMessageAt) {
+        const exists = localMsgs.some(
+          (m) =>
+            (m.text === user.lastMessage && Math.abs(m.createdAt - (user.lastMessageAt || 0)) < 5000) ||
+            m.createdAt === user.lastMessageAt
+        );
+        if (!exists) {
+          localMsgs.push({
+            id: `msg_${user.lastMessageAt}_sel`,
+            userId: user.userId,
+            sender: 'user',
+            text: user.lastMessage,
+            createdAt: user.lastMessageAt,
+            status: 'sent',
+          });
+          localMsgs.sort((a, b) => a.createdAt - b.createdAt);
+          localStorage.setItem(`webchat_msgs_${user.userId}`, JSON.stringify(localMsgs));
+        }
+      }
+
+      setMessagesByUserId((prevMap) => ({
+        ...prevMap,
+        [user.userId]: localMsgs,
+      }));
+      lastMessageCountRef.current = localMsgs.length;
     } catch {}
+
+    // Immediately trigger fresh message fetch from server
+    fetchMessages(user.userId, true);
 
     try {
       const cached = localStorage.getItem('webchat_users_cache');
@@ -547,7 +637,7 @@ export default function WebChatPage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ userId: user.userId }),
     }).catch(() => {});
-  }, []);
+  }, [fetchMessages]);
 
   return (
     <div className="app-container">
