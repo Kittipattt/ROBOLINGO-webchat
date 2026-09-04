@@ -85,14 +85,34 @@ export default function WebChatPage() {
     }
   }, [soundEnabled]);
 
-  // Fetch users
+  // Fetch users with non-destructive state merging
   const fetchUsers = useCallback(async (silent = false) => {
     if (!silent) setIsRefreshing(true);
     try {
       const res = await fetch('/api/users');
       if (res.ok) {
         const data = await res.json();
-        setUsers(data.users || []);
+        const incoming: LineUser[] = data.users || [];
+        
+        if (incoming.length > 0) {
+          setUsers((prev) => {
+            const map = new Map<string, LineUser>();
+            prev.forEach((u) => map.set(u.userId, u));
+            incoming.forEach((u) => {
+              const existing = map.get(u.userId);
+              map.set(u.userId, {
+                ...existing,
+                ...u,
+                unreadCount: existing ? existing.unreadCount : u.unreadCount,
+              });
+            });
+            const merged = Array.from(map.values()).sort((a, b) => b.lastMessageAt - a.lastMessageAt);
+            try {
+              localStorage.setItem('webchat_users_cache', JSON.stringify(merged));
+            } catch {}
+            return merged;
+          });
+        }
       }
     } catch (err) {
       console.error('Failed to fetch users:', err);
@@ -101,26 +121,41 @@ export default function WebChatPage() {
     }
   }, []);
 
-  // Fetch messages for active user
+  // Fetch messages for active user with non-destructive state merging
   const fetchMessages = useCallback(
     async (userId: string, silent = false) => {
       try {
         const res = await fetch(`/api/messages?userId=${encodeURIComponent(userId)}`);
         if (res.ok) {
           const data = await res.json();
-          const newMessages: ChatMessage[] = data.messages || [];
+          const incoming: ChatMessage[] = data.messages || [];
 
-          if (
-            lastMessageCountRef.current > 0 &&
-            newMessages.length > lastMessageCountRef.current
-          ) {
-            const latest = newMessages[newMessages.length - 1];
-            if (latest.sender === 'user') {
-              playNotificationSound();
+          setMessages((prev) => {
+            // If incoming is empty but we already have messages in UI, do not wipe out!
+            if (incoming.length === 0 && prev.length > 0) {
+              return prev;
             }
-          }
-          lastMessageCountRef.current = newMessages.length;
-          setMessages(newMessages);
+
+            const map = new Map<string, ChatMessage>();
+            prev.forEach((m) => map.set(m.id, m));
+            incoming.forEach((m) => map.set(m.id, m));
+            const merged = Array.from(map.values()).sort((a, b) => a.createdAt - b.createdAt);
+
+            if (
+              lastMessageCountRef.current > 0 &&
+              merged.length > lastMessageCountRef.current
+            ) {
+              const latest = merged[merged.length - 1];
+              if (latest.sender === 'user') {
+                playNotificationSound();
+              }
+            }
+            lastMessageCountRef.current = merged.length;
+            try {
+              localStorage.setItem(`webchat_msgs_${userId}`, JSON.stringify(merged));
+            } catch {}
+            return merged;
+          });
         }
       } catch (err) {
         console.error('Failed to fetch messages:', err);
@@ -129,8 +164,19 @@ export default function WebChatPage() {
     [playNotificationSound]
   );
 
-  // Poll loop (2.5s)
+  // Initial load and restoration from local storage
   useEffect(() => {
+    try {
+      const cachedUsers = localStorage.getItem('webchat_users_cache');
+      if (cachedUsers) {
+        const parsed = JSON.parse(cachedUsers);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setUsers(parsed);
+          setSelectedUser((curr) => curr || parsed[0]);
+        }
+      }
+    } catch {}
+
     fetchUsers();
 
     const interval = setInterval(() => {
@@ -143,25 +189,35 @@ export default function WebChatPage() {
     return () => clearInterval(interval);
   }, [fetchUsers, fetchMessages, selectedUser?.userId]);
 
-  // When selected user changes
+  const selectedUserId = selectedUser?.userId;
+
+  // When selected user changes, restore cached messages immediately then fetch
   useEffect(() => {
-    if (selectedUser?.userId) {
-      lastMessageCountRef.current = 0;
-      fetchMessages(selectedUser.userId);
+    if (selectedUserId) {
+      try {
+        const cached = localStorage.getItem(`webchat_msgs_${selectedUserId}`);
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setMessages(parsed);
+            lastMessageCountRef.current = parsed.length;
+          }
+        }
+      } catch {}
+
+      fetchMessages(selectedUserId);
 
       fetch('/api/users/read', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: selectedUser.userId }),
+        body: JSON.stringify({ userId: selectedUserId }),
       }).then(() => {
         setUsers((prev) =>
-          prev.map((u) => (u.userId === selectedUser.userId ? { ...u, unreadCount: 0 } : u))
+          prev.map((u) => (u.userId === selectedUserId ? { ...u, unreadCount: 0 } : u))
         );
       });
-    } else {
-      setMessages([]);
     }
-  }, [selectedUser, fetchMessages]);
+  }, [selectedUserId, fetchMessages]);
 
   // Auto-scroll
   useEffect(() => {
