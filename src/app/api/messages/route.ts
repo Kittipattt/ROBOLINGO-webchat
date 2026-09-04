@@ -68,6 +68,8 @@ export async function POST(req: NextRequest) {
             statusMessage: profile.statusMessage,
             lastMessage: text.trim(),
             lastMessageAt: message.createdAt,
+            resetUnread: true,
+            lastSender: 'agent',
           });
         }
       } catch {}

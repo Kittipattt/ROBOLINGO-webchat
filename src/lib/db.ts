@@ -84,6 +84,8 @@ export function upsertUser(data: {
   lastMessage?: string;
   lastMessageAt?: number;
   incrementUnread?: boolean;
+  resetUnread?: boolean;
+  lastSender?: 'user' | 'agent';
 }): LineUser {
   const db = loadDatabase();
   const existing = db.users[data.userId];
@@ -110,6 +112,12 @@ export function upsertUser(data: {
     lastMessageAt = existing.lastMessageAt;
   }
 
+  const unreadCount = data.resetUnread
+    ? 0
+    : data.incrementUnread
+    ? (existing?.unreadCount || 0) + 1
+    : (existing?.unreadCount ?? 0);
+
   const updatedUser: LineUser = {
     userId: data.userId,
     displayName,
@@ -117,9 +125,8 @@ export function upsertUser(data: {
     statusMessage: data.statusMessage ?? existing?.statusMessage,
     lastMessage,
     lastMessageAt,
-    unreadCount: data.incrementUnread
-      ? (existing?.unreadCount || 0) + 1
-      : (existing?.unreadCount ?? 0),
+    unreadCount,
+    lastSender: data.lastSender ?? existing?.lastSender,
   };
 
   db.users[data.userId] = updatedUser;
@@ -176,6 +183,8 @@ export function addMessage(data: {
     lastMessage: data.text,
     lastMessageAt: now,
     incrementUnread: data.sender === 'user',
+    resetUnread: data.sender === 'agent',
+    lastSender: data.sender,
   });
 
   saveDatabase(db);

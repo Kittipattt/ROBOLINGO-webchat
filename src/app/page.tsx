@@ -149,16 +149,44 @@ export default function WebChatPage() {
 
               // Unread count tracking:
               // 1. If user is currently active/open, keep unreadCount at 0.
-              // 2. If message timestamp <= lastReadTimestamp, user has already read it -> unreadCount = 0.
-              // 3. Only if a genuinely newer message arrived (msgTimestamp > lastReadTimestamp) and user is NOT active, mark unread.
+              // 2. If the latest message was sent by the agent, unreadCount is ALWAYS 0!
+              // 3. If message timestamp <= lastReadTimestamp, user has already read it -> unreadCount = 0.
+              // 4. Only if a genuinely newer message arrived from customer and user is NOT active, mark unread.
               const isCurrentActive = activeId === u.userId;
               const userLastReadAt = lastReadTimestampRef.current[u.userId] || 0;
               const msgTimestamp = bestLastMessageAt || u.lastMessageAt || 0;
 
+              // Check if latest message known was sent by the agent
+              let isLastFromAgent = u.lastSender === 'agent' || existing?.lastSender === 'agent';
+              const inMemMsgs = messagesByUserId[u.userId];
+              if (inMemMsgs && inMemMsgs.length > 0) {
+                const lastChat = inMemMsgs[inMemMsgs.length - 1];
+                if (lastChat.sender === 'agent' && lastChat.createdAt >= (bestLastMessageAt || 0) - 5000) {
+                  isLastFromAgent = true;
+                } else if (lastChat.sender === 'user') {
+                  isLastFromAgent = false;
+                }
+              } else {
+                try {
+                  const raw = localStorage.getItem(`webchat_msgs_${u.userId}`);
+                  if (raw) {
+                    const parsed = JSON.parse(raw);
+                    if (Array.isArray(parsed) && parsed.length > 0) {
+                      const lastChat = parsed[parsed.length - 1];
+                      if (lastChat.sender === 'agent' && lastChat.createdAt >= (bestLastMessageAt || 0) - 5000) {
+                        isLastFromAgent = true;
+                      } else if (lastChat.sender === 'user') {
+                        isLastFromAgent = false;
+                      }
+                    }
+                  }
+                } catch {}
+              }
+
               let bestUnreadCount = 0;
-              if (isCurrentActive) {
+              if (isCurrentActive || isLastFromAgent) {
                 bestUnreadCount = 0;
-                lastReadTimestampRef.current[u.userId] = Math.max(userLastReadAt, msgTimestamp, Date.now());
+                lastReadTimestampRef.current[u.userId] = Math.max(userLastReadAt, msgTimestamp, Date.now() + 10000);
                 try {
                   localStorage.setItem('webchat_last_read_map', JSON.stringify(lastReadTimestampRef.current));
                 } catch {}
@@ -184,6 +212,7 @@ export default function WebChatPage() {
                 lastMessage: bestLastMessage,
                 lastMessageAt: bestLastMessageAt,
                 unreadCount: bestUnreadCount,
+                lastSender: (isLastFromAgent ? 'agent' : (u.lastSender || existing?.lastSender || 'user')) as ('user' | 'agent'),
               });
             });
             const merged = Array.from(map.values()).sort((a, b) => b.lastMessageAt - a.lastMessageAt);
@@ -507,8 +536,8 @@ export default function WebChatPage() {
       [targetUserId]: [...(prevMap[targetUserId] || []), optimisticMessage],
     }));
 
-    // Record read timestamp for target user
-    lastReadTimestampRef.current[targetUserId] = now;
+    // Record read timestamp for target user with forward clock skew buffer
+    lastReadTimestampRef.current[targetUserId] = now + 15000;
     try {
       localStorage.setItem('webchat_last_read_map', JSON.stringify(lastReadTimestampRef.current));
     } catch {}
@@ -518,7 +547,7 @@ export default function WebChatPage() {
       const updated = prevUsers
         .map((u) =>
           u.userId === targetUserId
-            ? { ...u, lastMessage: text, lastMessageAt: now }
+            ? { ...u, lastMessage: text, lastMessageAt: now, unreadCount: 0, lastSender: 'agent' as const }
             : u
         )
         .sort((a, b) => b.lastMessageAt - a.lastMessageAt);
@@ -540,6 +569,15 @@ export default function WebChatPage() {
 
       if (res.ok) {
         const data = await res.json();
+        const serverCreatedAt = data.message?.createdAt || now;
+        lastReadTimestampRef.current[targetUserId] = Math.max(
+          lastReadTimestampRef.current[targetUserId] || 0,
+          serverCreatedAt + 15000
+        );
+        try {
+          localStorage.setItem('webchat_last_read_map', JSON.stringify(lastReadTimestampRef.current));
+        } catch {}
+
         setMessagesByUserId((prevMap) => {
           const userMsgs = prevMap[targetUserId] || [];
           const updated = userMsgs.map((m) =>
