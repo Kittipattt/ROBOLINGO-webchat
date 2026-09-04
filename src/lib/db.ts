@@ -160,3 +160,18 @@ export function addMessage(data: {
   saveDatabase(db);
   return newMsg;
 }
+
+/**
+ * Clear all records from database (used for testing or resetting state)
+ */
+export function clearDatabase(): void {
+  memoryStore = { users: {}, messages: [] };
+  try {
+    const filePath = getDbFilePath();
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+    }
+  } catch (error) {
+    // ignore
+  }
+}
