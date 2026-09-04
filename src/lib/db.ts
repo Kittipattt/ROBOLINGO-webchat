@@ -99,13 +99,21 @@ export function upsertUser(data: {
         : displayName || 'LINE User';
   }
 
+  // Monotonic timestamp protection: never allow an older lastMessage to overwrite a newer one
+  let lastMessage = data.lastMessage ?? existing?.lastMessage ?? '';
+  let lastMessageAt = data.lastMessageAt ?? now;
+  if (existing?.lastMessageAt && (data.lastMessageAt || 0) < existing.lastMessageAt) {
+    lastMessage = existing.lastMessage;
+    lastMessageAt = existing.lastMessageAt;
+  }
+
   const updatedUser: LineUser = {
     userId: data.userId,
     displayName,
     pictureUrl: data.pictureUrl ?? existing?.pictureUrl,
     statusMessage: data.statusMessage ?? existing?.statusMessage,
-    lastMessage: data.lastMessage ?? existing?.lastMessage ?? '',
-    lastMessageAt: data.lastMessageAt ?? now,
+    lastMessage,
+    lastMessageAt,
     unreadCount: data.incrementUnread
       ? (existing?.unreadCount || 0) + 1
       : (existing?.unreadCount ?? 0),

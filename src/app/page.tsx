@@ -102,12 +102,23 @@ export default function WebChatPage() {
               const bestPictureUrl = u.pictureUrl || existing?.pictureUrl;
               const bestStatusMessage = u.statusMessage || existing?.statusMessage;
 
+              // Monotonic timestamp protection: never allow an older poll to overwrite a newer message
+              let bestLastMessage = existing?.lastMessage || u.lastMessage;
+              let bestLastMessageAt = existing?.lastMessageAt || u.lastMessageAt;
+
+              if ((u.lastMessageAt || 0) >= (existing?.lastMessageAt || 0)) {
+                bestLastMessage = u.lastMessage;
+                bestLastMessageAt = u.lastMessageAt;
+              }
+
               map.set(u.userId, {
                 ...existing,
                 ...u,
                 displayName: bestDisplayName,
                 pictureUrl: bestPictureUrl,
                 statusMessage: bestStatusMessage,
+                lastMessage: bestLastMessage,
+                lastMessageAt: bestLastMessageAt,
                 unreadCount: existing ? existing.unreadCount : u.unreadCount,
               });
             });
@@ -193,6 +204,28 @@ export default function WebChatPage() {
               }
             }
             lastMessageCountRef.current = merged.length;
+
+            // Keep sidebar's lastMessage in sync with the true newest message in chat
+            if (merged.length > 0) {
+              const latestChat = merged[merged.length - 1];
+              setUsers((prevUsers) => {
+                const target = prevUsers.find((u) => u.userId === userId);
+                if (target && latestChat.createdAt >= (target.lastMessageAt || 0)) {
+                  const updated = prevUsers
+                    .map((u) =>
+                      u.userId === userId
+                        ? { ...u, lastMessage: latestChat.text, lastMessageAt: latestChat.createdAt }
+                        : u
+                    )
+                    .sort((a, b) => b.lastMessageAt - a.lastMessageAt);
+                  try {
+                    localStorage.setItem('webchat_users_cache', JSON.stringify(updated));
+                  } catch {}
+                  return updated;
+                }
+                return prevUsers;
+              });
+            }
 
             try {
               localStorage.setItem(`webchat_msgs_${userId}`, JSON.stringify(merged));
@@ -298,12 +331,13 @@ export default function WebChatPage() {
     setShowEmojiPicker(false);
 
     const tempId = `temp_${Date.now()}`;
+    const now = Date.now();
     const optimisticMessage: ChatMessage = {
       id: tempId,
       userId: targetUserId,
       sender: 'agent',
       text,
-      createdAt: Date.now(),
+      createdAt: now,
       status: 'sending',
     };
 
@@ -311,6 +345,21 @@ export default function WebChatPage() {
       ...prevMap,
       [targetUserId]: [...(prevMap[targetUserId] || []), optimisticMessage],
     }));
+
+    // Immediately update sidebar's last message with outbound message
+    setUsers((prevUsers) => {
+      const updated = prevUsers
+        .map((u) =>
+          u.userId === targetUserId
+            ? { ...u, lastMessage: text, lastMessageAt: now }
+            : u
+        )
+        .sort((a, b) => b.lastMessageAt - a.lastMessageAt);
+      try {
+        localStorage.setItem('webchat_users_cache', JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
 
     try {
       const res = await fetch('/api/messages', {
