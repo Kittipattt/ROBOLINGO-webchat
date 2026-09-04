@@ -15,20 +15,13 @@ import {
   RefreshCw,
   Clock,
   X,
-  PlusCircle,
   Copy,
   Check,
   PanelRight,
   Smile,
   ShieldCheck,
-  Activity,
   Inbox,
-  Filter,
-  Flame,
-  ThumbsUp,
-  Heart,
-  ChevronRight,
-  Hash,
+  Sparkle,
 } from 'lucide-react';
 import { LineUser, ChatMessage } from '@/lib/types';
 
@@ -43,22 +36,17 @@ export default function WebChatPage() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [showQrModal, setShowQrModal] = useState(false);
-  const [showSimulateModal, setShowSimulateModal] = useState(false);
   const [showDetailDrawer, setShowDetailDrawer] = useState(true);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [copiedId, setCopiedId] = useState(false);
   const [copiedMsgId, setCopiedMsgId] = useState<string | null>(null);
-
-  // Simulation form state
-  const [simName, setSimName] = useState('คุณวริษา สุขใจ');
-  const [simText, setSimText] = useState('สวัสดีค่ะ อยากสอบถามแพ็กเกจและราคาของระบบหน่อยค่ะ');
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const lastMessageCountRef = useRef<number>(0);
 
-  // Keyboard shortcut listener (Cmd+K / Ctrl+K to search)
+  // Keyboard shortcut (Cmd+K / Ctrl+K)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
@@ -81,8 +69,8 @@ export default function WebChatPage() {
       const gain = ctx.createGain();
 
       osc.type = 'sine';
-      osc.frequency.setValueAtTime(523.25, ctx.currentTime); // C5
-      osc.frequency.exponentialRampToValueAtTime(783.99, ctx.currentTime + 0.1); // G5
+      osc.frequency.setValueAtTime(523.25, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(783.99, ctx.currentTime + 0.1);
 
       gain.gain.setValueAtTime(0.15, ctx.currentTime);
       gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
@@ -93,11 +81,11 @@ export default function WebChatPage() {
       osc.start();
       osc.stop(ctx.currentTime + 0.35);
     } catch {
-      // Audio context might be restricted before interaction
+      // Audio context may be restricted before interaction
     }
   }, [soundEnabled]);
 
-  // Fetch all users
+  // Fetch users
   const fetchUsers = useCallback(async (silent = false) => {
     if (!silent) setIsRefreshing(true);
     try {
@@ -141,7 +129,7 @@ export default function WebChatPage() {
     [playNotificationSound]
   );
 
-  // Initial load and polling loop (2.5s)
+  // Poll loop (2.5s)
   useEffect(() => {
     fetchUsers();
 
@@ -161,7 +149,6 @@ export default function WebChatPage() {
       lastMessageCountRef.current = 0;
       fetchMessages(selectedUser.userId);
 
-      // Mark user as read
       fetch('/api/users/read', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -181,7 +168,7 @@ export default function WebChatPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Handle Send Message
+  // Send message
   const handleSendMessage = async (textToSend?: string) => {
     const text = (textToSend || inputText).trim();
     if (!text || !selectedUser || isSending) return;
@@ -236,18 +223,15 @@ export default function WebChatPage() {
     }
   };
 
-  // Quick reply options
   const quickReplies = [
     'สวัสดีครับ ยินดีต้อนรับสู่ ROBO LINGO ครับ ✨',
-    'ยินดีให้บริการครับ มีอะไรให้เราช่วยเหลือเพิ่มเติมไหมครับ?',
-    'ทางทีมงานกำลังเร่งตรวจสอบข้อมูลให้นะครับ สักครู่ครับ ⏳',
+    'ยินดีให้บริการครับ มีอะไรให้ช่วยเหลือเพิ่มเติมไหมครับ?',
+    'ทางทีมงานกำลังตรวจสอบข้อมูลให้นะครับ สักครู่ครับ ⏳',
     'ขอบคุณที่ติดต่อเราครับ หากมีข้อสงสัยสอบถามได้ตลอดเวลาครับ 🙏',
   ];
 
-  // Common emojis
   const emojis = ['😊', '🙏', '👍', '❤️', '🔥', '✨', '👏', '🎉', '⏳', '💡'];
 
-  // Filtered users
   const filteredUsers = useMemo(() => {
     return users.filter((u) => {
       const q = searchQuery.toLowerCase();
@@ -267,39 +251,6 @@ export default function WebChatPage() {
       return true;
     });
   }, [users, searchQuery, activeTab]);
-
-  // Simulation handler
-  const handleSimulateMessage = async () => {
-    if (!simText.trim()) return;
-    try {
-      const res = await fetch('/api/test-message', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          displayName: simName.trim() || 'ผู้ทดสอบ LINE',
-          text: simText.trim(),
-        }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setShowSimulateModal(false);
-        setSimText('');
-        await fetchUsers();
-        if (data.user?.userId) {
-          const matched = users.find((u) => u.userId === data.user.userId) || {
-            userId: data.user.userId,
-            displayName: data.user.displayName,
-            lastMessage: simText.trim(),
-            lastMessageAt: Date.now(),
-            unreadCount: 1,
-          };
-          setSelectedUser(matched);
-        }
-      }
-    } catch (err) {
-      alert('Simulation failed: ' + err);
-    }
-  };
 
   const copyUserId = (id: string) => {
     navigator.clipboard.writeText(id);
@@ -331,7 +282,6 @@ export default function WebChatPage() {
     <div className="app-container">
       {/* Top Navigation Bar */}
       <header className="top-navbar">
-        {/* Brand */}
         <div className="brand-section">
           <div className="brand-icon">
             <MessageSquare size={22} color="#FFFFFF" />
@@ -356,7 +306,7 @@ export default function WebChatPage() {
               <span style={{ color: 'var(--border-medium)' }}>•</span>
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: '#10B981' }}>
                 <ShieldCheck size={13} />
-                <span>API Verified</span>
+                <span>API Connected</span>
               </span>
             </div>
           </div>
@@ -364,36 +314,14 @@ export default function WebChatPage() {
 
         {/* Global Actions */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          {/* Add LINE OA Shimmer Button */}
+          {/* QR Code / Add LINE button */}
           <button
             className="shimmer-green-btn"
             onClick={() => setShowQrModal(true)}
-            title="สแกน QR Code เพื่อทดลองแชตจากมือถือจริง"
+            title="สแกน QR Code เพื่อเชื่อมต่อ LINE OA"
           >
             <QrCode size={16} />
-            <span>แอด LINE OA ทดสอบ</span>
-          </button>
-
-          {/* Simulate Message Button */}
-          <button
-            onClick={() => setShowSimulateModal(true)}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 7,
-              background: 'rgba(255, 255, 255, 0.05)',
-              border: '1px solid var(--border-medium)',
-              color: 'var(--text-primary)',
-              padding: '8px 14px',
-              borderRadius: 'var(--radius-sm)',
-              fontSize: 13,
-              fontWeight: 600,
-              cursor: 'pointer',
-              transition: 'all 0.2s ease',
-            }}
-          >
-            <PlusCircle size={15} color="var(--accent-cyan)" />
-            <span>จำลองแชตเข้า</span>
+            <span>QR Code บัญชี LINE</span>
           </button>
 
           {/* Sound Toggle */}
@@ -447,7 +375,6 @@ export default function WebChatPage() {
                 </span>
               </div>
 
-              {/* Total unread pill */}
               {users.some((u) => u.unreadCount > 0) && (
                 <span className="badge-unread-count">
                   {users.reduce((acc, curr) => acc + curr.unreadCount, 0)}
@@ -487,7 +414,7 @@ export default function WebChatPage() {
               </button>
             </div>
 
-            {/* Search Box with keyboard hint */}
+            {/* Search Box */}
             <div className="search-wrapper">
               <Search
                 size={16}
@@ -539,7 +466,7 @@ export default function WebChatPage() {
                     {searchQuery ? 'ไม่พบการสนทนาที่ค้นหา' : 'ยังไม่มีบทสนทนา'}
                   </p>
                   <p style={{ fontSize: 12.5, lineHeight: 1.5 }}>
-                    สแกน QR Code หรือกดปุ่ม <strong>"จำลองแชตเข้า"</strong> ด้านบนเพื่อทดสอบ
+                    เมื่อลูกค้าส่งข้อความเข้ามาทาง LINE OA ระบบจะแสดงข้อความและโปรไฟล์อัตโนมัติ
                   </p>
                 </div>
               </div>
@@ -705,7 +632,6 @@ export default function WebChatPage() {
                   <span>ล่าสุด {formatTime(selectedUser.lastMessageAt)}</span>
                 </span>
 
-                {/* Toggle Detail Drawer */}
                 <button
                   onClick={() => setShowDetailDrawer(!showDetailDrawer)}
                   style={{
@@ -838,7 +764,6 @@ export default function WebChatPage() {
                               fontSize: 10,
                               transition: 'opacity 0.2s',
                             }}
-                            className="msg-copy-btn"
                           >
                             {copiedMsgId === msg.id ? 'Copied' : 'Copy'}
                           </button>
@@ -865,9 +790,9 @@ export default function WebChatPage() {
               <div ref={messagesEndRef} />
             </div>
 
-            {/* Composer / Rich Input Area */}
+            {/* Composer */}
             <div className="composer-container">
-              {/* Quick Reply Pills */}
+              {/* Quick Replies */}
               <div className="quick-replies-carousel">
                 {quickReplies.map((reply, idx) => (
                   <button
@@ -881,7 +806,7 @@ export default function WebChatPage() {
                 ))}
               </div>
 
-              {/* Emoji quick bar if toggled */}
+              {/* Emoji quick bar */}
               {showEmojiPicker && (
                 <div
                   style={{
@@ -989,7 +914,7 @@ export default function WebChatPage() {
                 <MessageSquare size={42} color="var(--line-green)" />
               </div>
               <h3 style={{ fontSize: 24, fontWeight: 800, color: 'var(--text-primary)', marginBottom: 10 }}>
-                ยินดีต้อนรับสู่ Webchat Console
+                Webchat Console
               </h3>
               <p
                 style={{
@@ -1000,43 +925,22 @@ export default function WebChatPage() {
                 }}
               >
                 เลือกลูกค้าจากแถบด้านซ้ายเพื่อเปิดดูประวัติและพิมพ์ข้อความตอบกลับ หรือแอด LINE OA
-                เพื่อเริ่มส่งข้อความสดๆ จากแอป LINE เข้ามาได้ทันทีครับ
+                เพื่อเริ่มรับส่งข้อความผ่าน LINE Official Account ได้ทันที
               </p>
 
-              <div style={{ display: 'flex', gap: 14 }}>
+              <div>
                 <button className="shimmer-green-btn" onClick={() => setShowQrModal(true)}>
                   <QrCode size={18} />
                   <span>สแกน QR แอด LINE OA</span>
-                </button>
-
-                <button
-                  onClick={() => setShowSimulateModal(true)}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 8,
-                    background: 'rgba(255, 255, 255, 0.05)',
-                    border: '1px solid var(--border-medium)',
-                    color: 'var(--text-primary)',
-                    padding: '10px 18px',
-                    borderRadius: 'var(--radius-sm)',
-                    fontSize: 14,
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                  }}
-                >
-                  <PlusCircle size={17} color="var(--accent-cyan)" />
-                  <span>ทดสอบจำลองข้อความ</span>
                 </button>
               </div>
             </div>
           </main>
         )}
 
-        {/* COLUMN 3: Customer Detail Drawer (Collapsible) */}
+        {/* COLUMN 3: Customer Detail Drawer */}
         {selectedUser && showDetailDrawer && (
           <aside className="detail-drawer">
-            {/* Top drawer header */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <span style={{ fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)' }}>
                 Customer Intelligence
@@ -1049,7 +953,6 @@ export default function WebChatPage() {
               </button>
             </div>
 
-            {/* Profile Card */}
             <div className="drawer-profile-card">
               <div className="avatar-container" style={{ width: 72, height: 72, marginBottom: 14 }}>
                 {selectedUser.pictureUrl ? (
@@ -1186,10 +1089,10 @@ export default function WebChatPage() {
                 </div>
                 <div>
                   <h3 style={{ fontSize: 17, fontWeight: 700, color: 'var(--text-primary)' }}>
-                    แอด LINE Official Account
+                    LINE Official Account
                   </h3>
                   <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                    สแกนเพื่อทดลองส่งข้อความจริง
+                    สแกน QR เพื่อเพิ่มเพื่อนและเริ่มการสนทนา
                   </span>
                 </div>
               </div>
@@ -1229,7 +1132,7 @@ export default function WebChatPage() {
                 LINE ID: @194rgooz
               </span>
               <span style={{ fontSize: 12, color: '#6B7280', marginTop: 2 }}>
-                เปิดแอป LINE บนมือถือแล้วสแกนเพื่อเริ่มแชต
+                เปิดแอป LINE บนโทรศัพท์มือถือแล้วสแกน QR Code
               </span>
             </div>
 
@@ -1254,7 +1157,7 @@ export default function WebChatPage() {
                 }}
               >
                 <ExternalLink size={16} />
-                <span>เปิดลิงก์แอดเพื่อนบน LINE</span>
+                <span>เปิดแอป LINE เพื่อเพิ่มเพื่อน</span>
               </a>
               <button
                 onClick={() => setShowQrModal(false)}
@@ -1269,93 +1172,6 @@ export default function WebChatPage() {
                 }}
               >
                 ปิด
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Simulate Message Modal */}
-      {showSimulateModal && (
-        <div className="modal-backdrop-pro" onClick={() => setShowSimulateModal(false)}>
-          <div className="modal-dialog-pro" onClick={(e) => e.stopPropagation()}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <PlusCircle size={20} color="var(--accent-cyan)" />
-                <h3 style={{ fontSize: 17, fontWeight: 700, color: 'var(--text-primary)' }}>
-                  จำลองข้อความเข้าจาก LINE
-                </h3>
-              </div>
-              <button
-                onClick={() => setShowSimulateModal(false)}
-                style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
-              >
-                <X size={20} />
-              </button>
-            </div>
-
-            <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 18, lineHeight: 1.5 }}>
-              ฟังก์ชันนี้จำลองกรณีผู้ใช้พิมพ์ส่งข้อความหา LINE OA เพื่อทดสอบฟีเจอร์การรับข้อความและเลือกตอบกลับ
-            </p>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginBottom: 22 }}>
-              <div>
-                <label style={{ display: 'block', fontSize: 12.5, color: 'var(--text-secondary)', marginBottom: 6 }}>
-                  ชื่อผู้ส่ง (LINE Display Name)
-                </label>
-                <input
-                  type="text"
-                  className="search-input"
-                  value={simName}
-                  onChange={(e) => setSimName(e.target.value)}
-                  placeholder="เช่น คุณกิตติพัฒน์"
-                />
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: 12.5, color: 'var(--text-secondary)', marginBottom: 6 }}>
-                  ข้อความที่ส่ง
-                </label>
-                <textarea
-                  className="search-input"
-                  style={{ minHeight: 80, resize: 'vertical' }}
-                  value={simText}
-                  onChange={(e) => setSimText(e.target.value)}
-                  placeholder="พิมพ์ข้อความทดสอบ..."
-                />
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-              <button
-                onClick={() => setShowSimulateModal(false)}
-                style={{
-                  padding: '9px 18px',
-                  background: 'rgba(255, 255, 255, 0.06)',
-                  border: '1px solid var(--border-subtle)',
-                  color: 'var(--text-secondary)',
-                  borderRadius: 10,
-                  fontSize: 13.5,
-                  cursor: 'pointer',
-                }}
-              >
-                ยกเลิก
-              </button>
-              <button
-                onClick={handleSimulateMessage}
-                style={{
-                  padding: '9px 20px',
-                  background: 'linear-gradient(135deg, #06B6D4 0%, #0284C7 100%)',
-                  border: 'none',
-                  color: '#FFFFFF',
-                  borderRadius: 10,
-                  fontSize: 13.5,
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                  boxShadow: '0 4px 14px rgba(6, 182, 212, 0.35)',
-                }}
-              >
-                ส่งข้อความจำลอง
               </button>
             </div>
           </div>

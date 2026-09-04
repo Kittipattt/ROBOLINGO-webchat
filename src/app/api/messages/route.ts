@@ -25,20 +25,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'userId and text are required' }, { status: 400 });
     }
 
-    // 1. Send Push message to LINE user (skip external LINE API for local simulation users)
-    const isSimulatedUser = userId.startsWith('U_demo_') || userId.startsWith('test_');
-    
-    if (!isSimulatedUser) {
-      const pushResult = await sendLinePushMessage(userId, text.trim());
-      if (!pushResult.success) {
-        console.error('[Messages API] Push error:', pushResult.error);
-        return NextResponse.json(
-          { error: pushResult.error || 'Failed to send message to LINE' },
-          { status: 502 }
-        );
-      }
-    } else {
-      console.log(`[Messages API] Simulated user ${userId}: bypassed real LINE push`);
+    // 1. Send Push message to LINE user via LINE Messaging API
+    const pushResult = await sendLinePushMessage(userId, text.trim());
+    if (!pushResult.success) {
+      console.error('[Messages API] Push error:', pushResult.error);
+      return NextResponse.json(
+        { error: pushResult.error || 'Failed to send message to LINE' },
+        { status: 502 }
+      );
     }
 
     // 2. Save outbound message in DB
