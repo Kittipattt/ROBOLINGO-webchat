@@ -12,6 +12,7 @@ import {
   QrCode,
   Check,
   Copy,
+  Trash2,
 } from 'lucide-react';
 import { LineUser, ChatMessage } from '@/lib/types';
 import { formatTime } from '@/lib/formatters';
@@ -33,6 +34,7 @@ interface ChatCanvasProps {
   messagesEndRef: React.RefObject<HTMLDivElement | null>;
   textareaRef: React.RefObject<HTMLTextAreaElement | null>;
   onOpenQrModal: () => void;
+  onOpenDeleteModal?: () => void;
 }
 
 const QUICK_REPLIES = [
@@ -61,6 +63,7 @@ export function ChatCanvas({
   messagesEndRef,
   textareaRef,
   onOpenQrModal,
+  onOpenDeleteModal,
 }: ChatCanvasProps) {
   const [copiedMsgId, setCopiedMsgId] = useState<string | null>(null);
 
@@ -199,6 +202,30 @@ export function ChatCanvas({
             <Clock size={13} />
             <span>ล่าสุด {formatTime(selectedUser.lastMessageAt)}</span>
           </span>
+
+          {onOpenDeleteModal && (
+            <button
+              onClick={onOpenDeleteModal}
+              style={{
+                background: 'rgba(239, 68, 68, 0.08)',
+                border: '1px solid rgba(239, 68, 68, 0.22)',
+                color: '#f87171',
+                padding: '8px 12px',
+                borderRadius: 'var(--radius-sm)',
+                fontSize: 12.5,
+                fontWeight: 600,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+              }}
+              title="จัดการ / ลบแชทนี้"
+            >
+              <Trash2 size={15} />
+              <span>ลบแชท</span>
+            </button>
+          )}
 
           <button
             onClick={onToggleDetailDrawer}

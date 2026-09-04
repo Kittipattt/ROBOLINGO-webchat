@@ -3,8 +3,8 @@ import { NextRequest } from 'next/server';
 import crypto from 'crypto';
 
 // Import Route Handlers
-import { GET as getUsers } from '../users/route';
-import { GET as getMessages, POST as postMessage } from '../messages/route';
+import { GET as getUsers, DELETE as deleteUserApi } from '../users/route';
+import { GET as getMessages, POST as postMessage, DELETE as deleteMessagesApi } from '../messages/route';
 import { POST as markRead } from '../users/read/route';
 import { POST as postWebhook, GET as getWebhook } from '../line/webhook/route';
 
@@ -18,7 +18,7 @@ describe('API Route Handlers (src/app/api)', () => {
     vi.restoreAllMocks();
   });
 
-  describe('GET /api/users', () => {
+  describe('GET & DELETE /api/users', () => {
     it('should return 200 with users list', async () => {
       const res = await getUsers();
       expect(res.status).toBe(200);
@@ -26,9 +26,24 @@ describe('API Route Handlers (src/app/api)', () => {
       const data = await res.json();
       expect(Array.isArray(data.users)).toBe(true);
     });
+
+    it('DELETE /api/users should reject missing userId with 400', async () => {
+      const req = new NextRequest('http://localhost:3000/api/users');
+      const res = await deleteUserApi(req);
+      expect(res.status).toBe(400);
+    });
+
+    it('DELETE /api/users should successfully delete user with 200', async () => {
+      const req = new NextRequest('http://localhost:3000/api/users?userId=U_to_delete');
+      const res = await deleteUserApi(req);
+      expect(res.status).toBe(200);
+      const data = await res.json();
+      expect(data.success).toBe(true);
+      expect(data.userId).toBe('U_to_delete');
+    });
   });
 
-  describe('GET & POST /api/messages', () => {
+  describe('GET, POST & DELETE /api/messages', () => {
     it('GET /api/messages should return list of messages', async () => {
       const req = new NextRequest('http://localhost:3000/api/messages?userId=U_test');
       const res = await getMessages(req);
@@ -65,6 +80,21 @@ describe('API Route Handlers (src/app/api)', () => {
       const data = await res.json();
       expect(data.success).toBe(true);
       expect(data.message.text).toBe('สวัสดีครับ ยินดีให้บริการ');
+    });
+
+    it('DELETE /api/messages should reject missing userId with 400', async () => {
+      const req = new NextRequest('http://localhost:3000/api/messages');
+      const res = await deleteMessagesApi(req);
+      expect(res.status).toBe(400);
+    });
+
+    it('DELETE /api/messages should clear messages and return 200', async () => {
+      const req = new NextRequest('http://localhost:3000/api/messages?userId=U_client_1');
+      const res = await deleteMessagesApi(req);
+      expect(res.status).toBe(200);
+      const data = await res.json();
+      expect(data.success).toBe(true);
+      expect(data.userId).toBe('U_client_1');
     });
   });
 

@@ -192,6 +192,36 @@ export function addMessage(data: {
 }
 
 /**
+ * Clear all messages for a specific user, resetting lastMessage and unreadCount
+ */
+export function clearUserMessages(userId: string): boolean {
+  const db = loadDatabase();
+  db.messages = db.messages.filter((msg) => msg.userId !== userId);
+
+  if (db.users[userId]) {
+    db.users[userId].lastMessage = '';
+    db.users[userId].unreadCount = 0;
+  }
+
+  saveDatabase(db);
+  return true;
+}
+
+/**
+ * Completely delete a user and all their associated messages
+ */
+export function deleteUser(userId: string): boolean {
+  const db = loadDatabase();
+  const existed = Boolean(db.users[userId]);
+
+  delete db.users[userId];
+  db.messages = db.messages.filter((msg) => msg.userId !== userId);
+
+  saveDatabase(db);
+  return existed;
+}
+
+/**
  * Clear all records from database (used for testing or resetting state)
  */
 export function clearDatabase(): void {
