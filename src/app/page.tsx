@@ -117,12 +117,34 @@ export default function WebChatPage() {
               const bestStatusMessage = u.statusMessage || existing?.statusMessage;
 
               // Monotonic timestamp protection: never allow an older poll to overwrite a newer message
-              let bestLastMessage = existing?.lastMessage || u.lastMessage;
+              // and never allow an empty/whitespace lastMessage from API to overwrite an existing non-empty message
+              let bestLastMessage = (existing?.lastMessage && existing.lastMessage.trim())
+                ? existing.lastMessage
+                : (u.lastMessage || '');
               let bestLastMessageAt = existing?.lastMessageAt || u.lastMessageAt;
 
               if ((u.lastMessageAt || 0) >= (existing?.lastMessageAt || 0)) {
-                bestLastMessage = u.lastMessage;
+                if (u.lastMessage && u.lastMessage.trim()) {
+                  bestLastMessage = u.lastMessage;
+                }
                 bestLastMessageAt = u.lastMessageAt;
+              }
+
+              // Fallback to active chat messages if bestLastMessage is still empty
+              if (!bestLastMessage || !bestLastMessage.trim()) {
+                try {
+                  const raw = localStorage.getItem(`webchat_msgs_${u.userId}`);
+                  if (raw) {
+                    const parsed = JSON.parse(raw);
+                    if (Array.isArray(parsed) && parsed.length > 0) {
+                      const lastChat = parsed[parsed.length - 1];
+                      if (lastChat.text) {
+                        bestLastMessage = lastChat.text;
+                        bestLastMessageAt = Math.max(bestLastMessageAt || 0, lastChat.createdAt);
+                      }
+                    }
+                  }
+                } catch {}
               }
 
               // Unread count tracking:
@@ -329,11 +351,20 @@ export default function WebChatPage() {
               const latestChat = merged[merged.length - 1];
               setUsers((prevUsers) => {
                 const target = prevUsers.find((u) => u.userId === userId);
-                if (target && latestChat.createdAt >= (target.lastMessageAt || 0)) {
+                if (
+                  target &&
+                  (latestChat.createdAt >= (target.lastMessageAt || 0) ||
+                    !target.lastMessage ||
+                    !target.lastMessage.trim())
+                ) {
                   const updated = prevUsers
                     .map((u) =>
                       u.userId === userId
-                        ? { ...u, lastMessage: latestChat.text, lastMessageAt: latestChat.createdAt }
+                        ? {
+                            ...u,
+                            lastMessage: latestChat.text,
+                            lastMessageAt: Math.max(u.lastMessageAt || 0, latestChat.createdAt),
+                          }
                         : u
                     )
                     .sort((a, b) => b.lastMessageAt - a.lastMessageAt);
