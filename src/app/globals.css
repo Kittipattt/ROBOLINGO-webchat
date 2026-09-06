@@ -633,6 +633,13 @@ html, body {
   box-shadow: 0 4px 18px rgba(6, 199, 85, 0.3);
 }
 
+.message-bubble.sticker-bubble {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 4px 6px !important;
+}
+
 .message-meta {
   display: flex;
   align-items: center;

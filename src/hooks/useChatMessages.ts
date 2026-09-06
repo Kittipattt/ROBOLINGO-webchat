@@ -327,6 +327,82 @@ export function useChatMessages(options: UseChatMessagesOptions = {}) {
     [isSending, onMessageSyncedToUser]
   );
 
+  // Send sticker message with optimistic update
+  const sendStickerMessage = useCallback(
+    async (packageId: string, stickerId: string): Promise<boolean> => {
+      const targetUserId = selectedUserIdRef.current;
+      if (!packageId || !stickerId || !targetUserId || isSending) return false;
+
+      setIsSending(true);
+      const tempId = `temp_stk_${Date.now()}`;
+      const now = Date.now();
+      const stickerUrl = `https://stickershop.line-scdn.net/stickershop/v1/sticker/${stickerId}/android/sticker.png`;
+      const displayText = '🏷️ [สติกเกอร์]';
+
+      const optimisticMessage: ChatMessage = {
+        id: tempId,
+        userId: targetUserId,
+        sender: 'agent',
+        text: displayText,
+        stickerUrl,
+        packageId: String(packageId),
+        stickerId: String(stickerId),
+        messageType: 'sticker',
+        createdAt: now,
+        status: 'sending',
+      };
+
+      setMessagesByUserId((prevMap) => ({
+        ...prevMap,
+        [targetUserId]: [...(prevMap[targetUserId] || []), optimisticMessage],
+      }));
+
+      onMessageSyncedToUser?.(targetUserId, displayText, now, 'agent');
+
+      try {
+        const serverMsg = await chatService.sendMessage(
+          targetUserId,
+          displayText,
+          undefined,
+          'sticker',
+          { packageId: String(packageId), stickerId: String(stickerId), stickerUrl }
+        );
+        const serverCreatedAt = serverMsg?.createdAt || now;
+
+        setMessagesByUserId((prevMap) => {
+          const userMsgs = prevMap[targetUserId] || [];
+          const updated = userMsgs.map((m) =>
+            m.id === tempId ? serverMsg || { ...m, status: 'sent', stickerUrl } : m
+          );
+          storage.setCachedMessages(targetUserId, updated);
+          return {
+            ...prevMap,
+            [targetUserId]: updated,
+          };
+        });
+
+        onMessageSyncedToUser?.(targetUserId, displayText, serverCreatedAt, 'agent');
+        return true;
+      } catch (err: any) {
+        console.error('[useChatMessages] Send sticker error:', err);
+        setMessagesByUserId((prevMap) => {
+          const userMsgs = prevMap[targetUserId] || [];
+          return {
+            ...prevMap,
+            [targetUserId]: userMsgs.map((m) =>
+              m.id === tempId ? { ...m, status: 'error' } : m
+            ),
+          };
+        });
+        alert(`เกิดข้อผิดพลาดในการส่งสติกเกอร์: ${err?.message || 'Server error'}`);
+        return false;
+      } finally {
+        setIsSending(false);
+      }
+    },
+    [isSending, onMessageSyncedToUser]
+  );
+
   // Clear all messages for a user
   const clearUserMessages = useCallback(async (userId: string): Promise<boolean> => {
     await chatService.clearMessages(userId);
@@ -355,6 +431,7 @@ export function useChatMessages(options: UseChatMessagesOptions = {}) {
     isSending,
     sendMessage,
     sendImageMessage,
+    sendStickerMessage,
     clearUserMessages,
     removeUserMessagesLocally,
     fetchMessagesForUser,

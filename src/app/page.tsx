@@ -47,6 +47,7 @@ export default function WebChatPage() {
     isSending,
     sendMessage,
     sendImageMessage,
+    sendStickerMessage,
     clearUserMessages,
     removeUserMessagesLocally,
     syncIncomingUserMessage,
@@ -158,6 +159,7 @@ export default function WebChatPage() {
           onInputChange={setInputText}
           onSendMessage={handleSendMessage}
           onSendImage={sendImageMessage}
+          onSendSticker={sendStickerMessage}
           isSending={isSending}
           showEmojiPicker={showEmojiPicker}
           onToggleEmojiPicker={() => setShowEmojiPicker(!showEmojiPicker)}

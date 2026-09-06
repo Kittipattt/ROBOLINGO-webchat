@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
-import { verifyLineSignature, getLineUserProfile, getLineMessageContent } from '@/lib/line';
+import { verifyLineSignature, getLineUserProfile, getLineMessageContent, getLineStickerUrl } from '@/lib/line';
 import { addMessage, upsertUser, getUploadsDir } from '@/lib/db';
 import { LineWebhookPayload } from '@/lib/types';
 
@@ -40,12 +40,21 @@ export async function POST(req: NextRequest) {
         const msg = event.message as Record<string, any>;
         let text = '';
         let imageUrl: string | undefined = undefined;
-        let messageType: 'text' | 'image' = 'text';
+        let stickerUrl: string | undefined = undefined;
+        let packageId: string | undefined = undefined;
+        let stickerId: string | undefined = undefined;
+        let messageType: 'text' | 'image' | 'sticker' = 'text';
 
         if (msg.type === 'text') {
           text = msg.text || '';
         } else if (msg.type === 'sticker') {
           text = '🏷️ [สติกเกอร์]';
+          messageType = 'sticker';
+          stickerId = msg.stickerId ? String(msg.stickerId) : undefined;
+          packageId = msg.packageId ? String(msg.packageId) : undefined;
+          if (stickerId) {
+            stickerUrl = getLineStickerUrl(stickerId);
+          }
         } else if (msg.type === 'image') {
           text = '📷 [รูปภาพ]';
           messageType = 'image';
@@ -92,6 +101,9 @@ export async function POST(req: NextRequest) {
           sender: 'user',
           text,
           imageUrl,
+          stickerUrl,
+          packageId,
+          stickerId,
           messageType,
         });
 

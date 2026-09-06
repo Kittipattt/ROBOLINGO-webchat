@@ -182,12 +182,15 @@ export function addMessage(data: {
   sender: 'user' | 'agent';
   text: string;
   imageUrl?: string;
-  messageType?: 'text' | 'image';
+  stickerUrl?: string;
+  packageId?: string;
+  stickerId?: string;
+  messageType?: 'text' | 'image' | 'sticker';
 }): ChatMessage {
   const db = loadDatabase();
   const now = Date.now();
-  const messageType = data.messageType || (data.imageUrl ? 'image' : 'text');
-  const text = data.text || (messageType === 'image' ? '📷 [รูปภาพ]' : '');
+  const messageType = data.messageType || (data.stickerUrl ? 'sticker' : data.imageUrl ? 'image' : 'text');
+  const text = data.text || (messageType === 'sticker' ? '🏷️ [สติกเกอร์]' : messageType === 'image' ? '📷 [รูปภาพ]' : '');
 
   const newMsg: ChatMessage = {
     id: `msg_${now}_${Math.random().toString(36).substring(2, 9)}`,
@@ -195,6 +198,9 @@ export function addMessage(data: {
     sender: data.sender,
     text,
     imageUrl: data.imageUrl,
+    stickerUrl: data.stickerUrl,
+    packageId: data.packageId,
+    stickerId: data.stickerId,
     messageType,
     createdAt: now,
     status: 'sent',
