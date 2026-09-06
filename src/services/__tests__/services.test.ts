@@ -71,6 +71,17 @@ describe('Service Layer Unit Tests (src/services)', () => {
       expect(msg.sender).toBe('agent');
     });
 
+    it('uploadImage should POST file to /api/upload and return url', async () => {
+      vi.spyOn(global, 'fetch').mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ success: true, url: '/api/images/img_123.jpg', filename: 'img_123.jpg' }),
+      } as any);
+
+      const file = new File(['mock_image'], 'photo.jpg', { type: 'image/jpeg' });
+      const res = await chatService.uploadImage(file);
+      expect(res.url).toBe('/api/images/img_123.jpg');
+    });
+
     it('clearMessages should DELETE /api/messages', async () => {
       vi.spyOn(global, 'fetch').mockResolvedValueOnce({
         ok: true,

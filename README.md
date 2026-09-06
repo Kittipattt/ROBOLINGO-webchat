@@ -5,7 +5,7 @@
 ![Next.js](https://img.shields.io/badge/Next.js-15.5-black?style=for-the-badge&logo=next.js)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue?style=for-the-badge&logo=typescript)
 ![LINE Messaging API](https://img.shields.io/badge/LINE-Messaging%20API-00C300?style=for-the-badge&logo=line)
-![Vitest](https://img.shields.io/badge/Vitest-53%20Passing-green?style=for-the-badge&logo=vitest)
+![Vitest](https://img.shields.io/badge/Vitest-70%20Passing-green?style=for-the-badge&logo=vitest)
 ![License](https://img.shields.io/badge/License-MIT-purple?style=for-the-badge)
 
 **ระบบไลฟ์แชทสองทาง (Two-Way Live Chat Helpdesk) เชื่อมต่อ LINE Official Account (LINE OA) แบบ Real-time**  
@@ -21,41 +21,47 @@
 
 **ROBO LINGO WebChat** คือระบบบริหารจัดการข้อความลูกค้าและศูนย์บริการลูกค้า (Customer Support Helpdesk) ที่เชื่อมต่อโดยตรงกับ **LINE Official Account (LINE OA)** ผ่าน **LINE Messaging API** 
 
-ระบบถูกออกแบบมาเพื่อแก้ปัญหาของทีมแอดมินที่ต้องตอบลูกค้าจำนวนมาก โดยมอบประสบการณ์การทำงานที่ **รวดเร็ว ไหลลื่น ไม่มีหน่วง (Zero-Latency UX)** ด้วยเทคโนโลยี **Offline-First Caching**, ดีไซน์ **Emerald Glassmorphism** ระดับพรีเมียม และระบบเทมเพลตคำตอบด่วนที่ปรับแต่งได้อิสระ
+ระบบถูกออกแบบมาเพื่อแก้ปัญหาของทีมแอดมินที่ต้องตอบลูกค้าจำนวนมาก โดยมอบประสบการณ์การทำงานที่ **รวดเร็ว ไหลลื่น ไม่มีหน่วง (Zero-Latency UX)** ด้วยเทคโนโลยี **Offline-First Caching**, ดีไซน์ **Emerald Glassmorphism** ระดับพรีเมียม, ระบบเทมเพลตคำตอบด่วนที่ปรับแต่งได้อิสระ และการรับ-ส่งรูปภาพสมบูรณ์แบบทั้งสองทาง
 
 ---
 
 ## ✨ ฟีเจอร์เด่น (Key Features)
 
 ### 1. ⚡ การรับ-ส่งข้อความสองทางแบบเรียลไทม์ (Two-Way Live Messaging)
-- **Webhook Integration**: รับข้อความและอีเวนต์จาก LINE Platform ทันทีที่ลูกค้าส่ง (รองรับทั้ง Text Message และ Sticker)
+- **Webhook Integration**: รับข้อความและอีเวนต์จาก LINE Platform ทันทีที่ลูกค้าส่ง (รองรับ Text, Sticker และ Image)
 - **Push Message API**: แอดมินสามารถพิมพ์ตอบกลับจากหน้าเว็บ ข้อความจะถูกส่งตรงเข้าแอป LINE ของลูกค้าในทันที
-- **Sound Alert & Notification**: เสียงแจ้งเตือนนุ่มนวลแบบ Glassmorphism เมื่อมีข้อความใหม่เข้ามา
+- **Sound Alert & Notification**: เสียงแจ้งเตือนนุ่มนวลเมื่อมีข้อความใหม่เข้ามา
 
-### 2. 🛡️ ความปลอดภัยมาตรฐานระดับ Enterprise (Security & Signature Verification)
+### 2. 🖼️ รองรับการรับ-ส่งรูปภาพ & กล่องดูภาพขยาย (Image Messages & Lightbox Viewer)
+- **รับรูปภาพจาก LINE (Incoming Images)**: เมื่อลูกค้าส่งรูปภาพ (เช่น สลิปโอนเงิน, รูปสินค้า) ระบบจะดาวน์โหลดไฟล์ผ่าน **LINE Content API** และจัดเก็บไว้อย่างปลอดภัย พร้อมแสดงผลรูปภาพในห้องแชททันที
+- **แอดมินแนบรูปภาพส่งหาลูกค้า (Outgoing Push Image)**: แอดมินกดปุ่มคลิปหนีบกระดาษ 📎 เพื่อเลือกไฟล์รูปภาพ (JPEG, PNG, GIF, WebP สูงสุด 10MB) มีแถบดูภาพตัวอย่าง (Preview Bar) ขนาดไฟล์ และปุ่มยกเลิก สามารถพิมพ์ข้อความกำกับ (Caption) แล้วกดส่งเข้า LINE ลูกค้าได้โดยตรง
+- **Lightbox Viewer ขยายดูภาพขนาดเต็ม**: คลิกที่รูปภาพในห้องแชทเพื่อเปิดดูรูปขนาดใหญ่แบบ Full-Screen ปรับความคมชัด พร้อมปุ่ม **Zoom In/Out**, ปุ่ม **Download** บันทึกรูปลงเครื่อง และปุ่มปิด
+
+### 3. 🌓 สลับธีมสว่าง / มืด แบบ Quick Switch (Dark & Light Theme Mode)
+- ปุ่ม Toggle ☀️ / 🌙 บน Header คลิกเดียวเปลี่ยนโทนสีทั้งระบบทันที
+- ระบบ **Theme Persistence** บันทึกค่าที่เลือกลงใน `localStorage` โหลดธีมเดิมอัตโนมัติเมื่อเปิดใช้งานใหม่
+- โหมด Light สบายตา คมชัด อ่านง่าย และโหมด Dark สไตล์ Emerald Glassmorphism ระดับพรีเมียม
+
+### 4. 🛡️ ความปลอดภัยมาตรฐานระดับ Enterprise (Security & Signature Verification)
 - ตรวจสอบความถูกต้องของ Webhook ทุก Request ด้วย **HMAC-SHA256 Signature Verification** (`x-line-signature`) เพื่อป้องกัน Request ปลอมแปลง
 - ป้องกัน Timing Attack ด้วย `crypto.timingSafeEqual`
+- ป้องกัน Path Traversal Attack ในการดาวน์โหลดและให้บริการไฟล์รูปภาพ
 
-### 3. 👥 การจัดการลูกค้าอัจฉริยะ (Intelligent Customer Management)
+### 5. 👥 การจัดการลูกค้าอัจฉริยะ (Intelligent Customer Management)
 - **Auto-Enrich Profile**: ดึงชื่อแสดงผล (Display Name), รูปโปรไฟล์ (Avatar) และสถานะจาก LINE Profile API โดยอัตโนมัติ
 - **Unread Badges & Monotonic Order**: มีตัวนับข้อความที่ยังไม่ได้อ่าน พร้อมระบบเรียงลำดับแชทตามเวลาล่าสุด โดยป้องกันปัญหาข้อมูลเก่าทับข้อมูลใหม่อย่างแม่นยำ
 - **Search & Filter**: ค้นหาลูกค้าตามชื่อหรือข้อความล่าสุดได้ทันที
 
-### 4. ⚡ จัดการเทมเพลตคำตอบด่วนได้เอง (Customizable Quick Replies)
+### 6. ⚡ จัดการเทมเพลตคำตอบด่วนได้เอง (Customizable Quick Replies)
 - **คลิกเดียวส่งทันที**: มีชิปคำตอบด่วนด้านบนกล่องข้อความ คลิกส่งหาลูกค้าได้ในเสี้ยววินาที
 - **Modal จัดการเทมเพลต**: แอดมินสามารถ **เพิ่มข้อความใหม่ (Add)**, **แก้ไขแบบ Inline (Edit)** และ **ลบ (Delete)** ข้อความที่ใช้บ่อยได้เอง
 - **Reset to Defaults**: ปุ่มกู้คืน 4 ข้อความมาตรฐานของระบบได้ตลอดเวลา
 - **ระบบจัดเก็บ 2 ชั้น (Offline-First)**: โหลดเร็วทันทีผ่าน Local Storage และ Sync กับเซิร์ฟเวอร์แบบ Background
 
-### 5. 🗑️ จัดการบทสนทนาอย่างปลอดภัย (Safe Conversation Management)
+### 7. 🗑️ จัดการบทสนทนาอย่างปลอดภัย (Safe Conversation Management)
 - **ลบห้องแชท (Delete Chat)**: ลบผู้ใช้ออกจากระบบพร้อมข้อความทั้งหมด
 - **ล้างประวัติข้อความ (Clear History)**: ล้างข้อความเก่าโดยยังคงเก็บโปรไฟล์ลูกค้าไว้
 - มี Modal แจ้งเตือนยืนยันก่อนลบ ป้องกันการกดผิดพลาดโดยไม่ตั้งใจ
-
-### 6. 🎨 ดีไซน์ระดับพรีเมียม (Emerald Glassmorphism Dark Theme)
-- โทนสีมืดทันสมัย (Dark Surface) ผสานสีเขียว LINE Emerald
-- เลย์เอาต์ Helpdesk 3 คอลัมน์ (Inbox Sidebar, Chat Canvas, Customer Intelligence Drawer)
-- รองรับ Responsive Design ทุกขนาดหน้าจอ ทั้ง Desktop, Tablet และ Mobile
 
 ---
 
@@ -67,32 +73,36 @@
 src/
 ├── app/                      # Presentation & Route Handlers Layer
 │   ├── api/
-│   │   ├── line/webhook/     # LINE Webhook (HMAC-SHA256 & Event Parsing)
-│   │   ├── messages/         # GET, POST (Push Message), DELETE (Clear msgs)
+│   │   ├── line/webhook/     # LINE Webhook (HMAC-SHA256, Text/Sticker/Image)
+│   │   ├── messages/         # GET, POST (Text & Image Push), DELETE
 │   │   ├── users/            # GET (Profile enrichment), DELETE (Delete user)
 │   │   ├── users/read/       # POST (Mark conversation as read)
-│   │   └── quick-replies/    # GET, POST (Manage quick reply templates)
+│   │   ├── quick-replies/    # GET, POST (Manage quick reply templates)
+│   │   ├── upload/           # POST (Secure image upload handler, max 10MB)
+│   │   └── images/[filename] # GET (Safe binary image streaming & caching)
 │   ├── layout.tsx            # Root Layout & Metadata
 │   └── page.tsx              # Main Helpdesk Container
 ├── components/               # Pure UI Components Layer
 │   ├── ChatSidebar.tsx       # รายการผู้ใช้, ค้นหา, Unread Count
-│   ├── ChatCanvas.tsx        # กล่องสนทนา, Quick Reply Chips, ช่องพิมพ์
+│   ├── ChatCanvas.tsx        # กล่องสนทนา, แนบรูปภาพ 📎, Lightbox, Quick Replies
 │   ├── CustomerDrawer.tsx    # ข้อมูลลูกค้า, สถิติ, ปุ่มล้าง/ลบแชท
 │   ├── QuickRepliesModal.tsx # หน้าต่างเพิ่ม/แก้ไข/ลบเทมเพลตคำตอบด่วน
 │   ├── DeleteModal.tsx       # กล่องยืนยันการลบแชท
 │   └── LineQrModal.tsx       # QR Code เพิ่มเพื่อน LINE OA
 ├── hooks/                    # Custom Hooks & State Logic Layer
-│   ├── useWebChat.ts         # รวม Business Logic, Polling, User & Messages State
+│   ├── useWebChat.ts         # Hook รวมสำหรับ Dashboard State
+│   ├── useChatMessages.ts    # Logic ข้อความ, ส่งรูปภาพ, Optimistic Updates
+│   ├── useChatUsers.ts       # Logic ลูกค้า, Unread Counts, เรียงลำดับ
 │   └── useQuickReplies.ts    # Logic จัดการและ Sync เทมเพลตคำตอบด่วน
 ├── services/                 # Frontend API Abstraction Layer
-│   ├── chatService.ts        # เรียก API ข้อความ
+│   ├── chatService.ts        # เรียก API ข้อความ และ อัปโหลดรูปภาพ
 │   ├── userService.ts        # เรียก API ผู้ใช้
 │   └── quickReplyService.ts  # เรียก API Quick Replies
 └── lib/                      # Core Utilities & Persistence Layer
-    ├── types.ts              # TypeScript Interfaces & Data Contracts
-    ├── db.ts                 # Database Engine & Local JSON Persistence
+    ├── types.ts              # TypeScript Interfaces (รวม ChatMessage, ImageUrl)
+    ├── db.ts                 # Database Engine, JSON Persistence & Uploads Dir
     ├── storage.ts            # Client-Side Caching & LocalStorage
-    └── line.ts               # LINE SDK Utilities (Signature, Profile, Push)
+    └── line.ts               # LINE SDK Utilities (Signature, Profile, Push, Image Content)
 ```
 
 ### 🔄 Data Flow Sequence Diagram

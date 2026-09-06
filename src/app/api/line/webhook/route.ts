@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyLineSignature, getLineUserProfile } from '@/lib/line';
-import { addMessage, upsertUser } from '@/lib/db';
+import fs from 'fs';
+import path from 'path';
+import { verifyLineSignature, getLineUserProfile, getLineMessageContent } from '@/lib/line';
+import { addMessage, upsertUser, getUploadsDir } from '@/lib/db';
 import { LineWebhookPayload } from '@/lib/types';
 
 export const dynamic = 'force-dynamic';
@@ -37,6 +39,8 @@ export async function POST(req: NextRequest) {
       if (event.type === 'message' && event.message) {
         const msg = event.message as Record<string, any>;
         let text = '';
+        let imageUrl: string | undefined = undefined;
+        let messageType: 'text' | 'image' = 'text';
 
         if (msg.type === 'text') {
           text = msg.text || '';
@@ -44,6 +48,18 @@ export async function POST(req: NextRequest) {
           text = '🏷️ [สติกเกอร์]';
         } else if (msg.type === 'image') {
           text = '📷 [รูปภาพ]';
+          messageType = 'image';
+          try {
+            const imageBuffer = await getLineMessageContent(msg.id);
+            if (imageBuffer) {
+              const filename = `img_line_${msg.id}.jpg`;
+              const uploadsDir = getUploadsDir();
+              fs.writeFileSync(path.join(uploadsDir, filename), imageBuffer);
+              imageUrl = `/api/images/${filename}`;
+            }
+          } catch (err) {
+            console.error(`[Webhook] Error saving image content for message ${msg.id}:`, err);
+          }
         } else if (msg.type === 'video') {
           text = '🎥 [วิดีโอ]';
         } else if (msg.type === 'audio') {
@@ -75,6 +91,8 @@ export async function POST(req: NextRequest) {
           userId,
           sender: 'user',
           text,
+          imageUrl,
+          messageType,
         });
 
         console.log(`[Webhook] Stored ${msg.type} message from ${profile?.displayName || userId}: "${text}"`);

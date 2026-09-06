@@ -148,6 +148,23 @@ describe('Database & Persistence Module (src/lib/db.ts)', () => {
       expect(user?.lastMessage).toBe('ข้อความล่าสุด');
       expect(user?.unreadCount).toBe(1); // User message increments unread
     });
+
+    it('should store and retrieve image messages with imageUrl and messageType', () => {
+      const msg = addMessage({
+        userId: 'U666',
+        sender: 'user',
+        text: '',
+        imageUrl: '/api/images/img_test.jpg',
+        messageType: 'image',
+      });
+
+      expect(msg.imageUrl).toBe('/api/images/img_test.jpg');
+      expect(msg.messageType).toBe('image');
+      expect(msg.text).toBe('📷 [รูปภาพ]');
+
+      const user = getUserById('U666');
+      expect(user?.lastMessage).toBe('📷 [รูปภาพ]');
+    });
   });
 
   describe('Conversation & User Deletion', () => {

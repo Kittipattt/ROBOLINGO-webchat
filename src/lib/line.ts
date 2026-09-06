@@ -119,3 +119,84 @@ export async function sendLinePushMessage(userId: string, text: string): Promise
     return { success: false, error: error?.message || 'Network error sending push message' };
   }
 }
+
+/**
+ * Download binary content of a message (e.g. image) from LINE Data Content API
+ */
+export async function getLineMessageContent(messageId: string): Promise<Buffer | null> {
+  const token = getChannelAccessToken();
+  if (!token || !messageId) {
+    return null;
+  }
+
+  try {
+    const res = await fetch(`https://api-data.line.me/v2/bot/message/${messageId}/content`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      cache: 'no-store',
+    });
+
+    if (!res.ok) {
+      const errText = await res.text();
+      console.error(`[LINE] Failed to get content for message ${messageId}: ${res.status} - ${errText}`);
+      return null;
+    }
+
+    const arrayBuffer = await res.arrayBuffer();
+    return Buffer.from(arrayBuffer);
+  } catch (error) {
+    console.error(`[LINE] Error downloading message content for ${messageId}:`, error);
+    return null;
+  }
+}
+
+/**
+ * Push image message to LINE User
+ */
+export async function sendLinePushImage(
+  userId: string,
+  originalContentUrl: string,
+  previewImageUrl?: string
+): Promise<{ success: boolean; error?: string }> {
+  const token = getChannelAccessToken();
+  if (!token) {
+    return { success: false, error: 'LINE_CHANNEL_ACCESS_TOKEN is not configured' };
+  }
+
+  if (!userId || !originalContentUrl) {
+    return { success: false, error: 'userId and originalContentUrl are required' };
+  }
+
+  try {
+    const res = await fetch('https://api.line.me/v2/bot/message/push', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        to: userId,
+        messages: [
+          {
+            type: 'image',
+            originalContentUrl,
+            previewImageUrl: previewImageUrl || originalContentUrl,
+          },
+        ],
+      }),
+    });
+
+    if (!res.ok) {
+      const errText = await res.text();
+      console.error(`[LINE] Push image failed (${res.status}): ${errText}`);
+      return { success: false, error: `LINE API returned ${res.status}: ${errText}` };
+    }
+
+    return { success: true };
+  } catch (error: any) {
+    console.error('[LINE] Error sending push image:', error);
+    return { success: false, error: error?.message || 'Network error sending push image' };
+  }
+}
+

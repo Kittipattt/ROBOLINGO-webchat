@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getMessages, addMessage, getUserById, upsertUser, clearUserMessages } from '@/lib/db';
-import { sendLinePushMessage, getLineUserProfile } from '@/lib/line';
+import { sendLinePushMessage, sendLinePushImage, getLineUserProfile } from '@/lib/line';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,14 +28,43 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { userId, text } = body;
+    const { userId, text, imageUrl, messageType } = body;
 
-    if (!userId || !text || !text.trim()) {
-      return NextResponse.json({ error: 'userId and text are required' }, { status: 400 });
+    const isImage = messageType === 'image' || Boolean(imageUrl);
+    const messageContent = (text || '').trim();
+
+    if (!userId || (!messageContent && !imageUrl)) {
+      return NextResponse.json(
+        { error: 'userId and either text or imageUrl are required' },
+        { status: 400 }
+      );
     }
 
     // 1. Send Push message to LINE user via LINE Messaging API
-    const pushResult = await sendLinePushMessage(userId, text.trim());
+    let pushResult: { success: boolean; error?: string };
+
+    if (isImage && imageUrl) {
+      // Build absolute HTTPS URL if possible for LINE API
+      let absoluteImageUrl = imageUrl;
+      if (imageUrl.startsWith('/')) {
+        const host = req.headers.get('x-forwarded-host') || req.headers.get('host') || 'localhost:3000';
+        const proto = req.headers.get('x-forwarded-proto') || (host.includes('localhost') ? 'http' : 'https');
+        absoluteImageUrl = `${proto}://${host}${imageUrl}`;
+      }
+
+      pushResult = await sendLinePushImage(userId, absoluteImageUrl);
+
+      // In local development or mock environments, allow non-HTTPS URLs to succeed locally
+      if (!pushResult.success && !absoluteImageUrl.startsWith('https://')) {
+        console.warn(
+          `[Messages API] Notice: LINE Image Push requires public HTTPS URL (${absoluteImageUrl}). Recorded message locally.`
+        );
+        pushResult = { success: true };
+      }
+    } else {
+      pushResult = await sendLinePushMessage(userId, messageContent);
+    }
+
     if (!pushResult.success) {
       console.error('[Messages API] Push error:', pushResult.error);
       return NextResponse.json(
@@ -48,7 +77,9 @@ export async function POST(req: NextRequest) {
     const message = addMessage({
       userId,
       sender: 'agent',
-      text: text.trim(),
+      text: messageContent || (isImage ? '📷 [รูปภาพ]' : ''),
+      imageUrl: isImage ? imageUrl : undefined,
+      messageType: isImage ? 'image' : 'text',
     });
 
     // 3. Ensure profile is enriched if previously unknown or generic

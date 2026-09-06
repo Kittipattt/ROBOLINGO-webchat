@@ -160,20 +160,42 @@ export function getMessages(userId?: string): ChatMessage[] {
 }
 
 /**
+ * Get directory for uploaded and downloaded media
+ */
+export function getUploadsDir(): string {
+  const baseDir =
+    process.env.NODE_ENV === 'production' && !process.env.DATA_DIR
+      ? '/tmp'
+      : process.env.DATA_DIR || path.join(process.cwd(), 'data');
+  const uploadsDir = path.join(baseDir, 'uploads');
+  if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir, { recursive: true });
+  }
+  return uploadsDir;
+}
+
+/**
  * Add a new chat message
  */
 export function addMessage(data: {
   userId: string;
   sender: 'user' | 'agent';
   text: string;
+  imageUrl?: string;
+  messageType?: 'text' | 'image';
 }): ChatMessage {
   const db = loadDatabase();
   const now = Date.now();
+  const messageType = data.messageType || (data.imageUrl ? 'image' : 'text');
+  const text = data.text || (messageType === 'image' ? '📷 [รูปภาพ]' : '');
+
   const newMsg: ChatMessage = {
     id: `msg_${now}_${Math.random().toString(36).substring(2, 9)}`,
     userId: data.userId,
     sender: data.sender,
-    text: data.text,
+    text,
+    imageUrl: data.imageUrl,
+    messageType,
     createdAt: now,
     status: 'sent',
   };
@@ -183,7 +205,7 @@ export function addMessage(data: {
   // Update user's latest message
   upsertUser({
     userId: data.userId,
-    lastMessage: data.text,
+    lastMessage: text,
     lastMessageAt: now,
     incrementUnread: data.sender === 'user',
     resetUnread: data.sender === 'agent',
