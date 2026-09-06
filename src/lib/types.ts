@@ -54,3 +54,6 @@ export const DEFAULT_QUICK_REPLIES: QuickReplyTemplate[] = [
   { id: 'qr_3', text: 'ทางทีมงานกำลังตรวจสอบข้อมูลให้นะครับ สักครู่ครับ ⏳', createdAt: 3 },
   { id: 'qr_4', text: 'ขอบคุณที่ติดต่อเราครับ หากมีข้อสงสัยสอบถามได้ตลอดเวลาครับ 🙏', createdAt: 4 },
 ];
+
+export type ThemeMode = 'dark' | 'light';
+

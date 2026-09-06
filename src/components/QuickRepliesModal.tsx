@@ -94,7 +94,7 @@ export function QuickRepliesModal({
     >
       <div
         style={{
-          background: 'linear-gradient(145deg, rgba(20, 26, 31, 0.98), rgba(12, 17, 21, 0.99))',
+          background: 'var(--bg-surface-modal)',
           border: '1px solid rgba(6, 199, 85, 0.3)',
           borderRadius: 24,
           padding: 28,

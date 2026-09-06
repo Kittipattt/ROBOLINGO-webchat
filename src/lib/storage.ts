@@ -1,4 +1,4 @@
-import { LineUser, ChatMessage, QuickReplyTemplate, DEFAULT_QUICK_REPLIES } from './types';
+import { LineUser, ChatMessage, QuickReplyTemplate, DEFAULT_QUICK_REPLIES, ThemeMode } from './types';
 
 /**
  * Storage Layer
@@ -9,6 +9,7 @@ const USERS_CACHE_KEY = 'webchat_users_cache';
 const MSGS_CACHE_PREFIX = 'webchat_msgs_';
 const LAST_READ_MAP_KEY = 'webchat_last_read_map';
 const QUICK_REPLIES_KEY = 'webchat_quick_replies';
+const THEME_KEY = 'webchat_theme_mode';
 
 function isClient(): boolean {
   return typeof window !== 'undefined' && typeof window.localStorage !== 'undefined';
@@ -155,4 +156,30 @@ export const storage = {
     }
     return DEFAULT_QUICK_REPLIES;
   },
+
+  /**
+   * Get active theme from storage (defaults to 'dark')
+   */
+  getTheme(): ThemeMode {
+    if (!isClient()) return 'dark';
+    try {
+      const stored = localStorage.getItem(THEME_KEY);
+      return stored === 'light' ? 'light' : 'dark';
+    } catch {
+      return 'dark';
+    }
+  },
+
+  /**
+   * Persist theme preference to storage
+   */
+  setTheme(theme: ThemeMode): void {
+    if (!isClient()) return;
+    try {
+      localStorage.setItem(THEME_KEY, theme);
+    } catch {
+      // Storage restriction
+    }
+  },
 };
+

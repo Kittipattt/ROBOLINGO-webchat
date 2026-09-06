@@ -83,7 +83,7 @@ export function CustomerDetailDrawer({
         <div
           style={{
             width: '100%',
-            background: 'rgba(0, 0, 0, 0.25)',
+            background: 'var(--bg-user-id-box)',
             padding: '10px 12px',
             borderRadius: 'var(--radius-sm)',
             display: 'flex',
