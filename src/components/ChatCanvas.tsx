@@ -14,6 +14,11 @@ import {
   Copy,
   Trash2,
   Zap,
+  Paperclip,
+  Maximize2,
+  Download,
+  X,
+  Image as ImageIcon,
 } from 'lucide-react';
 import { LineUser, ChatMessage, QuickReplyTemplate, DEFAULT_QUICK_REPLIES } from '@/lib/types';
 import { formatTime } from '@/lib/formatters';
@@ -28,6 +33,7 @@ interface ChatCanvasProps {
   inputText: string;
   onInputChange: (text: string) => void;
   onSendMessage: (textToSend?: string) => void;
+  onSendImage?: (file: File, caption?: string) => void;
   isSending: boolean;
   showEmojiPicker: boolean;
   onToggleEmojiPicker: () => void;
@@ -62,8 +68,47 @@ export function ChatCanvas({
   onOpenDeleteModal,
   quickReplies = DEFAULT_QUICK_REPLIES,
   onOpenQuickRepliesModal,
+  onSendImage,
 }: ChatCanvasProps) {
   const [copiedMsgId, setCopiedMsgId] = useState<string | null>(null);
+  const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
+  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      alert('กรุณาเลือกไฟล์รูปภาพเท่านั้น (JPG, PNG, GIF, WebP)');
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      alert('ขนาดไฟล์เกินกำหนด (สูงสุด 10MB)');
+      return;
+    }
+    setSelectedImageFile(file);
+    setImagePreviewUrl(URL.createObjectURL(file));
+    e.target.value = '';
+  };
+
+  const handleCancelImage = () => {
+    if (imagePreviewUrl) {
+      URL.revokeObjectURL(imagePreviewUrl);
+    }
+    setSelectedImageFile(null);
+    setImagePreviewUrl(null);
+  };
+
+  const handleSend = () => {
+    if (selectedImageFile) {
+      onSendImage?.(selectedImageFile, inputText);
+      handleCancelImage();
+      onInputChange('');
+    } else {
+      onSendMessage();
+    }
+  };
 
   const copyMessage = (text: string, msgId: string) => {
     navigator.clipboard.writeText(text);
@@ -344,7 +389,58 @@ export function ChatCanvas({
 
                 <div className="message-bubble-wrapper">
                   <div className="message-bubble">
-                    {msg.text}
+                    {msg.imageUrl && (
+                      <div
+                        style={{
+                          marginBottom: msg.text && msg.text !== '📷 [รูปภาพ]' ? 8 : 0,
+                          cursor: 'pointer',
+                          borderRadius: 12,
+                          overflow: 'hidden',
+                          position: 'relative',
+                          background: 'rgba(0, 0, 0, 0.2)',
+                        }}
+                        data-testid="chat-image-btn"
+                        onClick={() => setLightboxUrl(msg.imageUrl || null)}
+                        title="คลิกเพื่อดูภาพขนาดเต็ม"
+                      >
+                        <img
+                          src={msg.imageUrl}
+                          alt="Message attachment"
+                          style={{
+                            maxWidth: 300,
+                            maxHeight: 260,
+                            width: '100%',
+                            display: 'block',
+                            borderRadius: 12,
+                            objectFit: 'cover',
+                            transition: 'transform 0.2s ease',
+                          }}
+                          loading="lazy"
+                        />
+                        <div
+                          style={{
+                            position: 'absolute',
+                            bottom: 6,
+                            right: 6,
+                            background: 'rgba(0, 0, 0, 0.7)',
+                            backdropFilter: 'blur(6px)',
+                            borderRadius: 6,
+                            padding: '2px 7px',
+                            color: '#FFFFFF',
+                            fontSize: 10.5,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 4,
+                          }}
+                        >
+                          <Maximize2 size={11} />
+                          <span>ดูรูปขยาย</span>
+                        </div>
+                      </div>
+                    )}
+                    {(!msg.imageUrl || (msg.text && msg.text !== '📷 [รูปภาพ]')) && (
+                      <span>{msg.text}</span>
+                    )}
                     <button
                       onClick={() => copyMessage(msg.text, msg.id)}
                       style={{
@@ -456,19 +552,90 @@ export function ChatCanvas({
           </div>
         )}
 
+        {/* Image Attachment Preview Bar */}
+        {imagePreviewUrl && (
+          <div
+            style={{
+              marginBottom: 10,
+              background: 'var(--bg-surface-elevated)',
+              border: '1px solid var(--border-medium)',
+              borderRadius: 'var(--radius-md)',
+              padding: '10px 14px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 12,
+              animation: 'fadeIn 0.2s ease',
+            }}
+          >
+            <img
+              src={imagePreviewUrl}
+              alt="Preview"
+              style={{
+                width: 52,
+                height: 52,
+                objectFit: 'cover',
+                borderRadius: 8,
+                border: '1px solid var(--border-subtle)',
+              }}
+            />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div
+                style={{
+                  fontSize: 13,
+                  fontWeight: 600,
+                  color: 'var(--text-primary)',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                }}
+              >
+                {selectedImageFile?.name}
+              </div>
+              <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 2 }}>
+                {(selectedImageFile ? selectedImageFile.size / 1024 : 0).toFixed(1)} KB • แนบรูปภาพแล้ว (พิมพ์ข้อความกำกับหรือกดส่งได้ทันที)
+              </div>
+            </div>
+            <button
+              id="cancel-image-btn"
+              type="button"
+              onClick={handleCancelImage}
+              style={{
+                background: 'rgba(255, 255, 255, 0.08)',
+                border: 'none',
+                color: 'var(--text-secondary)',
+                width: 28,
+                height: 28,
+                borderRadius: '50%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+              }}
+              title="ยกเลิกรูปภาพ"
+            >
+              <X size={15} />
+            </button>
+          </div>
+        )}
+
         {/* Composer Box */}
         <div className="composer-box">
           <textarea
+            id="message-input"
             ref={textareaRef}
             className="composer-textarea"
             rows={2}
-            placeholder={`ตอบกลับ ${selectedUser.displayName}... (กด Enter เพื่อส่ง, Shift + Enter ขึ้นบรรทัดใหม่)`}
+            placeholder={
+              selectedImageFile
+                ? `พิมพ์ข้อความกำกับภาพ (Caption) แล้วกดส่ง...`
+                : `ตอบกลับ ${selectedUser.displayName}... (กด Enter เพื่อส่ง, Shift + Enter ขึ้นบรรทัดใหม่)`
+            }
             value={inputText}
             onChange={(e) => onInputChange(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
-                onSendMessage();
+                handleSend();
               }
             }}
             disabled={isSending}
@@ -484,22 +651,126 @@ export function ChatCanvas({
               >
                 <Smile size={18} />
               </button>
+
+              <input
+                id="file-upload-input"
+                type="file"
+                ref={fileInputRef}
+                accept="image/jpeg,image/png,image/gif,image/webp"
+                style={{ position: 'absolute', opacity: 0, width: 1, height: 1, pointerEvents: 'none' }}
+                onChange={handleFileSelect}
+              />
+              <button
+                id="attach-image-btn"
+                type="button"
+                className="action-btn"
+                onClick={() => fileInputRef.current?.click()}
+                title="แนบรูปภาพส่งเข้า LINE (รูปสินค้า, สลิปโอนเงิน)"
+              >
+                <Paperclip size={18} />
+              </button>
+
               <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>Enter เพื่อส่ง</span>
             </div>
 
             <button
+              id="send-button"
               type="button"
               className="send-btn-pro"
-              onClick={() => onSendMessage()}
-              disabled={!inputText.trim() || isSending}
-              title="ส่งข้อความ Push เข้า LINE"
+              onClick={handleSend}
+              disabled={(!inputText.trim() && !selectedImageFile) || isSending}
+              title="ส่งข้อความ/รูปภาพ เข้า LINE"
             >
-              <span>ส่งข้อความ</span>
+              <span>{selectedImageFile ? 'ส่งรูปภาพ' : 'ส่งข้อความ'}</span>
               <Send size={15} />
             </button>
           </div>
         </div>
       </div>
+
+      {/* Full-Screen Lightbox Modal */}
+      {lightboxUrl && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0, 0, 0, 0.88)',
+            backdropFilter: 'blur(12px)',
+            WebkitBackdropFilter: 'blur(12px)',
+            zIndex: 99999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 24,
+            animation: 'fadeIn 0.2s ease-out',
+          }}
+          onClick={() => setLightboxUrl(null)}
+        >
+          <div
+            style={{ position: 'relative', maxWidth: '92vw', maxHeight: '92vh' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <img
+              src={lightboxUrl}
+              alt="Enlarged view"
+              style={{
+                maxWidth: '90vw',
+                maxHeight: '85vh',
+                objectFit: 'contain',
+                borderRadius: 16,
+                boxShadow: '0 25px 70px rgba(0, 0, 0, 0.9)',
+                border: '1px solid rgba(255, 255, 255, 0.15)',
+              }}
+            />
+            <div style={{ position: 'absolute', top: 12, right: 12, display: 'flex', gap: 10 }}>
+              <a
+                id="lightbox-download-btn"
+                href={lightboxUrl}
+                target="_blank"
+                rel="noreferrer"
+                download
+                style={{
+                  background: 'rgba(0, 0, 0, 0.7)',
+                  border: '1px solid rgba(255, 255, 255, 0.25)',
+                  color: '#FFFFFF',
+                  borderRadius: '50%',
+                  width: 38,
+                  height: 38,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                }}
+                title="ดาวน์โหลดรูปภาพ"
+              >
+                <Download size={18} />
+              </a>
+              <button
+                id="lightbox-close-btn"
+                type="button"
+                onClick={() => setLightboxUrl(null)}
+                style={{
+                  background: 'rgba(0, 0, 0, 0.7)',
+                  border: '1px solid rgba(255, 255, 255, 0.25)',
+                  color: '#FFFFFF',
+                  borderRadius: '50%',
+                  width: 38,
+                  height: 38,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                }}
+                title="ปิด (Close)"
+              >
+                <X size={18} />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

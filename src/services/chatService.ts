@@ -18,12 +18,37 @@ export const chatService = {
   },
 
   /**
+   * Upload an image file to the server
+   */
+  async uploadImage(file: File): Promise<{ url: string; filename: string }> {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const res = await fetch('/api/upload', {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to upload image');
+    }
+
+    return await res.json();
+  },
+
+  /**
    * Send an outbound message to a LINE user
    */
-  async sendMessage(userId: string, text: string): Promise<ChatMessage> {
+  async sendMessage(
+    userId: string,
+    text: string,
+    imageUrl?: string,
+    messageType?: 'text' | 'image'
+  ): Promise<ChatMessage> {
     const data = await apiClient<{ success: boolean; message: ChatMessage }>('/api/messages', {
       method: 'POST',
-      body: JSON.stringify({ userId, text }),
+      body: JSON.stringify({ userId, text, imageUrl, messageType }),
     });
     return data.message;
   },

@@ -1,6 +1,12 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import crypto from 'crypto';
-import { verifyLineSignature, getLineUserProfile, sendLinePushMessage } from '../line';
+import {
+  verifyLineSignature,
+  getLineUserProfile,
+  sendLinePushMessage,
+  getLineMessageContent,
+  sendLinePushImage,
+} from '../line';
 
 describe('LINE API Utility Module (src/lib/line.ts)', () => {
   const secret = 'test_channel_secret_12345';
@@ -138,6 +144,67 @@ describe('LINE API Utility Module (src/lib/line.ts)', () => {
       const res = await sendLinePushMessage('invalid_user', 'ข้อความ');
       expect(res.success).toBe(false);
       expect(res.error).toContain('400');
+    });
+  });
+
+  describe('getLineMessageContent()', () => {
+    it('should download and return buffer for messageId', async () => {
+      const mockBytes = Buffer.from('mock_image_bytes');
+      vi.spyOn(global, 'fetch').mockResolvedValueOnce({
+        ok: true,
+        arrayBuffer: async () => mockBytes.buffer.slice(mockBytes.byteOffset, mockBytes.byteOffset + mockBytes.byteLength),
+      } as any);
+
+      const buffer = await getLineMessageContent('msg_img_123');
+      expect(buffer).not.toBeNull();
+      expect(buffer?.toString()).toBe('mock_image_bytes');
+    });
+
+    it('should return null if download fails', async () => {
+      vi.spyOn(global, 'fetch').mockResolvedValueOnce({
+        ok: false,
+        status: 404,
+        text: async () => 'Not Found',
+      } as any);
+
+      const buffer = await getLineMessageContent('msg_nonexistent');
+      expect(buffer).toBeNull();
+    });
+  });
+
+  describe('sendLinePushImage()', () => {
+    it('should push image payload to LINE', async () => {
+      vi.spyOn(global, 'fetch').mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({}),
+      } as any);
+
+      const res = await sendLinePushImage('U12345', 'https://example.com/image.jpg');
+      expect(res.success).toBe(true);
+      expect(global.fetch).toHaveBeenCalledWith(
+        'https://api.line.me/v2/bot/message/push',
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify({
+            to: 'U12345',
+            messages: [
+              {
+                type: 'image',
+                originalContentUrl: 'https://example.com/image.jpg',
+                previewImageUrl: 'https://example.com/image.jpg',
+              },
+            ],
+          }),
+        })
+      );
+    });
+
+    it('should reject missing userId or imageUrl', async () => {
+      const res1 = await sendLinePushImage('', 'https://example.com/img.jpg');
+      expect(res1.success).toBe(false);
+
+      const res2 = await sendLinePushImage('U12345', '');
+      expect(res2.success).toBe(false);
     });
   });
 });

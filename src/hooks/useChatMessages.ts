@@ -248,6 +248,85 @@ export function useChatMessages(options: UseChatMessagesOptions = {}) {
     [isSending, onMessageSyncedToUser]
   );
 
+  // Send image message with file upload and optimistic update
+  const sendImageMessage = useCallback(
+    async (file: File, caption?: string): Promise<boolean> => {
+      const targetUserId = selectedUserIdRef.current;
+      if (!file || !targetUserId || isSending) return false;
+
+      setIsSending(true);
+      const tempId = `temp_img_${Date.now()}`;
+      const now = Date.now();
+      const localPreviewUrl = URL.createObjectURL(file);
+      const trimmedCaption = (caption || '').trim();
+      const displayText = trimmedCaption || '📷 [รูปภาพ]';
+
+      const optimisticMessage: ChatMessage = {
+        id: tempId,
+        userId: targetUserId,
+        sender: 'agent',
+        text: displayText,
+        imageUrl: localPreviewUrl,
+        messageType: 'image',
+        createdAt: now,
+        status: 'sending',
+      };
+
+      setMessagesByUserId((prevMap) => ({
+        ...prevMap,
+        [targetUserId]: [...(prevMap[targetUserId] || []), optimisticMessage],
+      }));
+
+      onMessageSyncedToUser?.(targetUserId, displayText, now, 'agent');
+
+      try {
+        // 1. Upload image file to server
+        const uploadResult = await chatService.uploadImage(file);
+        const serverImageUrl = uploadResult.url;
+
+        // 2. Send image message via messages API
+        const serverMsg = await chatService.sendMessage(
+          targetUserId,
+          displayText,
+          serverImageUrl,
+          'image'
+        );
+        const serverCreatedAt = serverMsg?.createdAt || now;
+
+        setMessagesByUserId((prevMap) => {
+          const userMsgs = prevMap[targetUserId] || [];
+          const updated = userMsgs.map((m) =>
+            m.id === tempId ? serverMsg || { ...m, status: 'sent', imageUrl: serverImageUrl } : m
+          );
+          storage.setCachedMessages(targetUserId, updated);
+          return {
+            ...prevMap,
+            [targetUserId]: updated,
+          };
+        });
+
+        onMessageSyncedToUser?.(targetUserId, displayText, serverCreatedAt, 'agent');
+        return true;
+      } catch (err: any) {
+        console.error('[useChatMessages] Send image error:', err);
+        setMessagesByUserId((prevMap) => {
+          const userMsgs = prevMap[targetUserId] || [];
+          return {
+            ...prevMap,
+            [targetUserId]: userMsgs.map((m) =>
+              m.id === tempId ? { ...m, status: 'error' } : m
+            ),
+          };
+        });
+        alert(`เกิดข้อผิดพลาดในการส่งรูปภาพ: ${err?.message || 'Server error'}`);
+        return false;
+      } finally {
+        setIsSending(false);
+      }
+    },
+    [isSending, onMessageSyncedToUser]
+  );
+
   // Clear all messages for a user
   const clearUserMessages = useCallback(async (userId: string): Promise<boolean> => {
     await chatService.clearMessages(userId);
@@ -275,6 +354,7 @@ export function useChatMessages(options: UseChatMessagesOptions = {}) {
     activeMessages,
     isSending,
     sendMessage,
+    sendImageMessage,
     clearUserMessages,
     removeUserMessagesLocally,
     fetchMessagesForUser,

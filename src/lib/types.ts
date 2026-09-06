@@ -16,6 +16,8 @@ export interface ChatMessage {
   text: string;
   createdAt: number; // Unix timestamp in ms
   status?: 'sending' | 'sent' | 'error';
+  imageUrl?: string;
+  messageType?: 'text' | 'image';
 }
 
 export interface LineWebhookEvent {
