@@ -10,6 +10,8 @@ import {
   getMessages,
   clearUserMessages,
   deleteUser,
+  getDbQuickReplies,
+  saveDbQuickReplies,
   clearDatabase,
 } from '../db';
 
@@ -195,6 +197,25 @@ describe('Database & Persistence Module (src/lib/db.ts)', () => {
       expect(getUserById('U_delete_test')).toBeNull();
       expect(getMessages('U_delete_test')).toHaveLength(0);
       expect(getAllUsers().some((u) => u.userId === 'U_delete_test')).toBe(false);
+    });
+  });
+
+  describe('Quick Reply Templates Management', () => {
+    it('should return default quick replies when database is empty', () => {
+      const replies = getDbQuickReplies();
+      expect(replies.length).toBeGreaterThanOrEqual(4);
+      expect(replies[0].text).toContain('สวัสดีครับ');
+    });
+
+    it('should save and retrieve custom quick reply templates', () => {
+      const customReplies = [
+        { id: 'custom_1', text: 'พร้อมส่งสินค้าทันทีครับ 📦', createdAt: 12345 },
+      ];
+
+      saveDbQuickReplies(customReplies);
+      const fetched = getDbQuickReplies();
+      expect(fetched).toHaveLength(1);
+      expect(fetched[0].text).toBe('พร้อมส่งสินค้าทันทีครับ 📦');
     });
   });
 });

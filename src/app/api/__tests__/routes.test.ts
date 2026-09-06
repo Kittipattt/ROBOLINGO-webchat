@@ -7,6 +7,7 @@ import { GET as getUsers, DELETE as deleteUserApi } from '../users/route';
 import { GET as getMessages, POST as postMessage, DELETE as deleteMessagesApi } from '../messages/route';
 import { POST as markRead } from '../users/read/route';
 import { POST as postWebhook, GET as getWebhook } from '../line/webhook/route';
+import { GET as getQuickRepliesApi, POST as postQuickRepliesApi } from '../quick-replies/route';
 
 describe('API Route Handlers (src/app/api)', () => {
   const secret = 'test_secret_for_webhook_api';
@@ -212,6 +213,48 @@ describe('API Route Handlers (src/app/api)', () => {
 
       const data = await res.json();
       expect(data.status).toBe('ok');
+    });
+  });
+
+  describe('GET & POST /api/quick-replies', () => {
+    it('GET /api/quick-replies should return quick replies list with 200', async () => {
+      const res = await getQuickRepliesApi();
+      expect(res.status).toBe(200);
+
+      const data = await res.json();
+      expect(Array.isArray(data.quickReplies)).toBe(true);
+      expect(data.quickReplies.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it('POST /api/quick-replies should reject non-array payload with 400', async () => {
+      const req = new NextRequest('http://localhost:3000/api/quick-replies', {
+        method: 'POST',
+        body: JSON.stringify({ quickReplies: 'invalid' }),
+      });
+
+      const res = await postQuickRepliesApi(req);
+      expect(res.status).toBe(400);
+    });
+
+    it('POST /api/quick-replies should save valid quick replies with 200', async () => {
+      const payload = {
+        quickReplies: [
+          { id: 'qr_test_1', text: 'ยินดีให้บริการตลอด 24 ชม. ครับ' },
+        ],
+      };
+
+      const req = new NextRequest('http://localhost:3000/api/quick-replies', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+
+      const res = await postQuickRepliesApi(req);
+      expect(res.status).toBe(200);
+
+      const data = await res.json();
+      expect(data.success).toBe(true);
+      expect(data.quickReplies).toHaveLength(1);
+      expect(data.quickReplies[0].text).toBe('ยินดีให้บริการตลอด 24 ชม. ครับ');
     });
   });
 });

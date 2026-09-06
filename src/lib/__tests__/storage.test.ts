@@ -82,4 +82,27 @@ describe('Storage Layer Unit Tests (src/lib/storage.ts)', () => {
       expect(map['U300']).toBe(99999);
     });
   });
+
+  describe('Quick Replies Storage', () => {
+    it('should return default quick replies if nothing is in storage', () => {
+      const replies = storage.getQuickReplies();
+      expect(replies.length).toBeGreaterThanOrEqual(4);
+    });
+
+    it('should persist and retrieve custom quick replies', () => {
+      const custom = [{ id: 'qr_test', text: 'ยินดีต้อนรับครับ', createdAt: 1 }];
+      storage.setQuickReplies(custom);
+      expect(storage.getQuickReplies()).toEqual(custom);
+    });
+
+    it('should reset quick replies to defaults', () => {
+      const custom = [{ id: 'qr_test', text: 'ยินดีต้อนรับครับ', createdAt: 1 }];
+      storage.setQuickReplies(custom);
+      expect(storage.getQuickReplies()).toHaveLength(1);
+
+      const reset = storage.resetQuickReplies();
+      expect(reset.length).toBeGreaterThanOrEqual(4);
+      expect(storage.getQuickReplies().length).toBeGreaterThanOrEqual(4);
+    });
+  });
 });

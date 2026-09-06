@@ -13,8 +13,9 @@ import {
   Check,
   Copy,
   Trash2,
+  Zap,
 } from 'lucide-react';
-import { LineUser, ChatMessage } from '@/lib/types';
+import { LineUser, ChatMessage, QuickReplyTemplate, DEFAULT_QUICK_REPLIES } from '@/lib/types';
 import { formatTime } from '@/lib/formatters';
 
 interface ChatCanvasProps {
@@ -35,14 +36,9 @@ interface ChatCanvasProps {
   textareaRef: React.RefObject<HTMLTextAreaElement | null>;
   onOpenQrModal: () => void;
   onOpenDeleteModal?: () => void;
+  quickReplies?: QuickReplyTemplate[];
+  onOpenQuickRepliesModal?: () => void;
 }
-
-const QUICK_REPLIES = [
-  'สวัสดีครับ ยินดีต้อนรับสู่ ROBO LINGO ครับ ✨',
-  'ยินดีให้บริการครับ มีอะไรให้ช่วยเหลือเพิ่มเติมไหมครับ?',
-  'ทางทีมงานกำลังตรวจสอบข้อมูลให้นะครับ สักครู่ครับ ⏳',
-  'ขอบคุณที่ติดต่อเราครับ หากมีข้อสงสัยสอบถามได้ตลอดเวลาครับ 🙏',
-];
 
 const EMOJIS = ['😊', '🙏', '👍', '❤️', '🔥', '✨', '👏', '🎉', '⏳', '💡'];
 
@@ -64,6 +60,8 @@ export function ChatCanvas({
   textareaRef,
   onOpenQrModal,
   onOpenDeleteModal,
+  quickReplies = DEFAULT_QUICK_REPLIES,
+  onOpenQuickRepliesModal,
 }: ChatCanvasProps) {
   const [copiedMsgId, setCopiedMsgId] = useState<string | null>(null);
 
@@ -393,16 +391,36 @@ export function ChatCanvas({
 
       {/* Composer */}
       <div className="composer-container">
-        {/* Quick Replies */}
+        {/* Quick Replies Carousel */}
         <div className="quick-replies-carousel">
-          {QUICK_REPLIES.map((reply, idx) => (
+          {onOpenQuickRepliesModal && (
             <button
-              key={idx}
+              type="button"
               className="quick-reply-chip"
-              onClick={() => onSendMessage(reply)}
-              disabled={isSending}
+              onClick={onOpenQuickRepliesModal}
+              style={{
+                background: 'rgba(6, 199, 85, 0.1)',
+                borderColor: 'rgba(6, 199, 85, 0.35)',
+                color: 'var(--line-green)',
+                fontWeight: 600,
+              }}
+              title="เพิ่มหรือแก้ไขเทมเพลตคำตอบด่วน"
             >
-              <span>{reply}</span>
+              <Zap size={13} />
+              <span>จัดการคำตอบด่วน</span>
+            </button>
+          )}
+
+          {quickReplies.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              className="quick-reply-chip"
+              onClick={() => onSendMessage(item.text)}
+              disabled={isSending}
+              title="คลิกเพื่อส่งข้อความนี้ทันที"
+            >
+              <span>{item.text}</span>
             </button>
           ))}
         </div>
