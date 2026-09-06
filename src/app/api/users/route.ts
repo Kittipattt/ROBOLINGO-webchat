@@ -14,7 +14,8 @@ export async function GET() {
         if (
           (!u.displayName || u.displayName === 'LINE User' || !u.pictureUrl) &&
           u.userId.startsWith('U') &&
-          !u.userId.includes('test')
+          !u.userId.includes('test') &&
+          !u.userId.includes('_')
         ) {
           try {
             const profile = await getLineUserProfile(u.userId);

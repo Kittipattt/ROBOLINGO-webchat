@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { userService } from '../userService';
 import { chatService } from '../chatService';
+import { quickReplyService } from '../quickReplyService';
 
 describe('Service Layer Unit Tests (src/services)', () => {
   beforeEach(() => {
@@ -78,6 +79,35 @@ describe('Service Layer Unit Tests (src/services)', () => {
 
       const result = await chatService.clearMessages('U_1');
       expect(result).toBe(true);
+    });
+  });
+
+  describe('quickReplyService', () => {
+    it('fetchQuickReplies should return templates from server', async () => {
+      vi.spyOn(global, 'fetch').mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          quickReplies: [{ id: 'qr_1', text: 'สวัสดีครับ' }],
+        }),
+      } as any);
+
+      const replies = await quickReplyService.fetchQuickReplies();
+      expect(replies).toHaveLength(1);
+      expect(replies[0].text).toBe('สวัสดีครับ');
+    });
+
+    it('saveQuickReplies should POST templates to /api/quick-replies', async () => {
+      const payload = [{ id: 'qr_1', text: 'สวัสดีครับ', createdAt: 100 }];
+      vi.spyOn(global, 'fetch').mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          success: true,
+          quickReplies: payload,
+        }),
+      } as any);
+
+      const saved = await quickReplyService.saveQuickReplies(payload);
+      expect(saved).toEqual(payload);
     });
   });
 });

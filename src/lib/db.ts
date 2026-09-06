@@ -1,16 +1,18 @@
 import fs from 'fs';
 import path from 'path';
-import { LineUser, ChatMessage } from './types';
+import { LineUser, ChatMessage, QuickReplyTemplate, DEFAULT_QUICK_REPLIES } from './types';
 
 interface DatabaseSchema {
   users: Record<string, LineUser>;
   messages: ChatMessage[];
+  quickReplies?: QuickReplyTemplate[];
 }
 
 // In-memory fallback / cache
 let memoryStore: DatabaseSchema = {
   users: {},
   messages: [],
+  quickReplies: DEFAULT_QUICK_REPLIES,
 };
 
 // Determine storage path (Local ./data/db.json, or /tmp/webchat-db.json for serverless)
@@ -31,6 +33,7 @@ function loadDatabase(): DatabaseSchema {
       memoryStore = {
         users: parsed.users || {},
         messages: parsed.messages || [],
+        quickReplies: parsed.quickReplies || DEFAULT_QUICK_REPLIES,
       };
       return memoryStore;
     }
@@ -222,10 +225,30 @@ export function deleteUser(userId: string): boolean {
 }
 
 /**
+ * Get quick reply templates from database
+ */
+export function getDbQuickReplies(): QuickReplyTemplate[] {
+  const db = loadDatabase();
+  return db.quickReplies && db.quickReplies.length > 0
+    ? db.quickReplies
+    : DEFAULT_QUICK_REPLIES;
+}
+
+/**
+ * Save quick reply templates to database
+ */
+export function saveDbQuickReplies(templates: QuickReplyTemplate[]): QuickReplyTemplate[] {
+  const db = loadDatabase();
+  db.quickReplies = templates;
+  saveDatabase(db);
+  return templates;
+}
+
+/**
  * Clear all records from database (used for testing or resetting state)
  */
 export function clearDatabase(): void {
-  memoryStore = { users: {}, messages: [] };
+  memoryStore = { users: {}, messages: [], quickReplies: DEFAULT_QUICK_REPLIES };
   try {
     const filePath = getDbFilePath();
     if (fs.existsSync(filePath)) {

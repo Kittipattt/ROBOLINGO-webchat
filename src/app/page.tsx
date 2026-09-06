@@ -7,11 +7,13 @@ import { ChatCanvas } from '@/components/ChatCanvas';
 import { CustomerDetailDrawer } from '@/components/CustomerDetailDrawer';
 import { QrCodeModal } from '@/components/QrCodeModal';
 import { DeleteChatModal } from '@/components/DeleteChatModal';
+import { QuickRepliesModal } from '@/components/QuickRepliesModal';
 
 import { useNotificationSound } from '@/hooks/useNotificationSound';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { useWebChatUsers } from '@/hooks/useWebChatUsers';
 import { useChatMessages } from '@/hooks/useChatMessages';
+import { useQuickReplies } from '@/hooks/useQuickReplies';
 
 /**
  * Main WebChat Application View
@@ -58,7 +60,16 @@ export default function WebChatPage() {
     });
   }, [users, syncIncomingUserMessage]);
 
-  // 4. View Presentation State
+  // 4. Quick Replies Domain Hook
+  const {
+    quickReplies,
+    addQuickReply,
+    updateQuickReply,
+    deleteQuickReply,
+    resetToDefaults,
+  } = useQuickReplies();
+
+  // 5. View Presentation State
   const [inputText, setInputText] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<'all' | 'unread' | 'replied'>('all');
@@ -66,6 +77,7 @@ export default function WebChatPage() {
   const [showDetailDrawer, setShowDetailDrawer] = useState(true);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showQuickRepliesModal, setShowQuickRepliesModal] = useState(false);
   const [copiedId, setCopiedId] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -146,6 +158,8 @@ export default function WebChatPage() {
           textareaRef={textareaRef}
           onOpenQrModal={() => setShowQrModal(true)}
           onOpenDeleteModal={() => setShowDeleteModal(true)}
+          quickReplies={quickReplies}
+          onOpenQuickRepliesModal={() => setShowQuickRepliesModal(true)}
         />
 
         {selectedUser && showDetailDrawer && (
@@ -169,6 +183,16 @@ export default function WebChatPage() {
         messageCount={activeMessages.length}
         onClearMessages={handleClearMessages}
         onDeleteConversation={handleDeleteConversation}
+      />
+
+      <QuickRepliesModal
+        isOpen={showQuickRepliesModal}
+        onClose={() => setShowQuickRepliesModal(false)}
+        quickReplies={quickReplies}
+        onAddReply={addQuickReply}
+        onUpdateReply={updateQuickReply}
+        onDeleteReply={deleteQuickReply}
+        onResetDefaults={resetToDefaults}
       />
     </div>
   );

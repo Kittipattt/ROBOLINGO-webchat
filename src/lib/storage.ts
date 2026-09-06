@@ -1,4 +1,4 @@
-import { LineUser, ChatMessage } from './types';
+import { LineUser, ChatMessage, QuickReplyTemplate, DEFAULT_QUICK_REPLIES } from './types';
 
 /**
  * Storage Layer
@@ -8,6 +8,7 @@ import { LineUser, ChatMessage } from './types';
 const USERS_CACHE_KEY = 'webchat_users_cache';
 const MSGS_CACHE_PREFIX = 'webchat_msgs_';
 const LAST_READ_MAP_KEY = 'webchat_last_read_map';
+const QUICK_REPLIES_KEY = 'webchat_quick_replies';
 
 function isClient(): boolean {
   return typeof window !== 'undefined' && typeof window.localStorage !== 'undefined';
@@ -111,5 +112,47 @@ export const storage = {
       } catch {}
     }
     return current;
+  },
+
+  /**
+   * Get cached quick replies or return default templates
+   */
+  getQuickReplies(): QuickReplyTemplate[] {
+    if (!isClient()) return DEFAULT_QUICK_REPLIES;
+    try {
+      const raw = localStorage.getItem(QUICK_REPLIES_KEY);
+      if (!raw) return DEFAULT_QUICK_REPLIES;
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed;
+      }
+      return DEFAULT_QUICK_REPLIES;
+    } catch {
+      return DEFAULT_QUICK_REPLIES;
+    }
+  },
+
+  /**
+   * Persist custom quick replies
+   */
+  setQuickReplies(replies: QuickReplyTemplate[]): void {
+    if (!isClient()) return;
+    try {
+      localStorage.setItem(QUICK_REPLIES_KEY, JSON.stringify(replies));
+    } catch {
+      // Storage quota or restriction
+    }
+  },
+
+  /**
+   * Reset quick replies to default templates
+   */
+  resetQuickReplies(): QuickReplyTemplate[] {
+    if (isClient()) {
+      try {
+        localStorage.setItem(QUICK_REPLIES_KEY, JSON.stringify(DEFAULT_QUICK_REPLIES));
+      } catch {}
+    }
+    return DEFAULT_QUICK_REPLIES;
   },
 };

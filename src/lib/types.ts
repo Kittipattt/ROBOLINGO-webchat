@@ -41,3 +41,16 @@ export interface LineWebhookPayload {
   destination?: string;
   events: LineWebhookEvent[];
 }
+
+export interface QuickReplyTemplate {
+  id: string;
+  text: string;
+  createdAt: number;
+}
+
+export const DEFAULT_QUICK_REPLIES: QuickReplyTemplate[] = [
+  { id: 'qr_1', text: 'สวัสดีครับ ยินดีต้อนรับสู่ ROBO LINGO ครับ ✨', createdAt: 1 },
+  { id: 'qr_2', text: 'ยินดีให้บริการครับ มีอะไรให้ช่วยเหลือเพิ่มเติมไหมครับ?', createdAt: 2 },
+  { id: 'qr_3', text: 'ทางทีมงานกำลังตรวจสอบข้อมูลให้นะครับ สักครู่ครับ ⏳', createdAt: 3 },
+  { id: 'qr_4', text: 'ขอบคุณที่ติดต่อเราครับ หากมีข้อสงสัยสอบถามได้ตลอดเวลาครับ 🙏', createdAt: 4 },
+];
