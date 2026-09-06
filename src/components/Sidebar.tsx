@@ -182,7 +182,7 @@ export function Sidebar({
                       style={{
                         fontWeight: isSelected ? 700 : 600,
                         fontSize: 14.5,
-                        color: isSelected ? '#FFFFFF' : 'var(--text-primary)',
+                        color: 'var(--text-primary)',
                         whiteSpace: 'nowrap',
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
@@ -190,7 +190,14 @@ export function Sidebar({
                     >
                       {user.displayName}
                     </span>
-                    <span style={{ fontSize: 11, color: 'var(--text-muted)', flexShrink: 0 }}>
+                    <span
+                      style={{
+                        fontSize: 11,
+                        color: isSelected ? 'var(--line-green)' : 'var(--text-muted)',
+                        fontWeight: isSelected ? 600 : 400,
+                        flexShrink: 0,
+                      }}
+                    >
                       {formatTime(user.lastMessageAt)}
                     </span>
                   </div>
@@ -206,7 +213,7 @@ export function Sidebar({
                     <p
                       style={{
                         fontSize: 13,
-                        color: !isSelected && user.unreadCount > 0 ? '#FFFFFF' : 'var(--text-secondary)',
+                        color: !isSelected && user.unreadCount > 0 ? 'var(--text-primary)' : 'var(--text-secondary)',
                         fontWeight: !isSelected && user.unreadCount > 0 ? 600 : 400,
                         whiteSpace: 'nowrap',
                         overflow: 'hidden',
