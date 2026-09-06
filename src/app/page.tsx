@@ -14,12 +14,16 @@ import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { useWebChatUsers } from '@/hooks/useWebChatUsers';
 import { useChatMessages } from '@/hooks/useChatMessages';
 import { useQuickReplies } from '@/hooks/useQuickReplies';
+import { useTheme } from '@/hooks/useTheme';
 
 /**
  * Main WebChat Application View
  * Cleanly orchestrates specialized domain hooks with presentation components.
  */
 export default function WebChatPage() {
+  // 0. Theme Mode Hook
+  const { theme, toggleTheme } = useTheme();
+
   // 1. Audio and Keyboard Shortcuts
   const { soundEnabled, toggleSound, playNotificationSound } = useNotificationSound(true);
   const { searchInputRef } = useKeyboardShortcuts();
@@ -123,6 +127,8 @@ export default function WebChatPage() {
       <TopNavbar
         soundEnabled={soundEnabled}
         onToggleSound={toggleSound}
+        theme={theme}
+        onToggleTheme={toggleTheme}
         isRefreshing={isRefreshing}
         onRefresh={() => fetchUsers()}
         onOpenQrModal={() => setShowQrModal(true)}

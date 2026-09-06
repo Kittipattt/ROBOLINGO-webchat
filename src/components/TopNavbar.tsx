@@ -1,11 +1,14 @@
 'use client';
 
 import React from 'react';
-import { MessageSquare, ShieldCheck, QrCode, Bell, BellOff, RefreshCw } from 'lucide-react';
+import { MessageSquare, ShieldCheck, QrCode, Bell, BellOff, RefreshCw, Sun, Moon } from 'lucide-react';
+import { ThemeMode } from '@/lib/types';
 
 interface TopNavbarProps {
   soundEnabled: boolean;
   onToggleSound: () => void;
+  theme: ThemeMode;
+  onToggleTheme: () => void;
   isRefreshing: boolean;
   onRefresh: () => void;
   onOpenQrModal: () => void;
@@ -14,6 +17,8 @@ interface TopNavbarProps {
 export function TopNavbar({
   soundEnabled,
   onToggleSound,
+  theme,
+  onToggleTheme,
   isRefreshing,
   onRefresh,
   onOpenQrModal,
@@ -87,6 +92,26 @@ export function TopNavbar({
           title={soundEnabled ? 'เปิดเสียงแจ้งเตือนแล้ว' : 'ปิดเสียงแจ้งเตือน'}
         >
           {soundEnabled ? <Bell size={16} /> : <BellOff size={16} />}
+        </button>
+
+        {/* Theme Quick Switcher */}
+        <button
+          onClick={onToggleTheme}
+          style={{
+            background: theme === 'light' ? 'rgba(245, 158, 11, 0.12)' : 'rgba(255, 255, 255, 0.04)',
+            border: `1px solid ${theme === 'light' ? 'rgba(245, 158, 11, 0.35)' : 'var(--border-subtle)'}`,
+            color: theme === 'light' ? '#D97706' : '#FCD34D',
+            padding: '9px',
+            borderRadius: 'var(--radius-sm)',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            transition: 'all 0.2s',
+          }}
+          title={theme === 'dark' ? 'สลับเป็นโหมดสว่าง (Light Mode)' : 'สลับเป็นโหมดมืด (Dark Mode)'}
+        >
+          {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
         </button>
 
         {/* Refresh Button */}

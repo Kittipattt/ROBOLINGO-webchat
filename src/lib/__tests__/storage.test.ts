@@ -105,4 +105,21 @@ describe('Storage Layer Unit Tests (src/lib/storage.ts)', () => {
       expect(storage.getQuickReplies().length).toBeGreaterThanOrEqual(4);
     });
   });
+
+  describe('Theme Storage', () => {
+    it('should default to dark theme when storage is empty', () => {
+      expect(storage.getTheme()).toBe('dark');
+    });
+
+    it('should persist and retrieve light theme', () => {
+      storage.setTheme('light');
+      expect(storage.getTheme()).toBe('light');
+    });
+
+    it('should persist and retrieve dark theme', () => {
+      storage.setTheme('dark');
+      expect(storage.getTheme()).toBe('dark');
+    });
+  });
 });
+

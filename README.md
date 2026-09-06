@@ -224,7 +224,6 @@ npx ngrok http 3000
 | **LINE Official Account** | [`@194rgooz`](https://line.me/R/ti/p/@194rgooz) |
 | **ลิงก์แอดไลน์ทดสอบ** | [https://line.me/R/ti/p/@194rgooz](https://line.me/R/ti/p/@194rgooz) |
 | **GitHub Repository** | [https://github.com/Kittipattt/ROBOLINGO-webchat](https://github.com/Kittipattt/ROBOLINGO-webchat) |
-| **Pull Request (Feature Branch)** | [PR: feat/custom-quick-replies](https://github.com/Kittipattt/ROBOLINGO-webchat/pull/new/feat/custom-quick-replies) |
 
 ---
 
