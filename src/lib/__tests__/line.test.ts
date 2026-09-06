@@ -6,6 +6,8 @@ import {
   sendLinePushMessage,
   getLineMessageContent,
   sendLinePushImage,
+  getLineStickerUrl,
+  sendLinePushSticker,
 } from '../line';
 
 describe('LINE API Utility Module (src/lib/line.ts)', () => {
@@ -205,6 +207,55 @@ describe('LINE API Utility Module (src/lib/line.ts)', () => {
 
       const res2 = await sendLinePushImage('U12345', '');
       expect(res2.success).toBe(false);
+    });
+  });
+
+  describe('getLineStickerUrl()', () => {
+    it('should construct valid CDN URL for LINE sticker ID', () => {
+      const url = getLineStickerUrl('52002734');
+      expect(url).toBe(
+        'https://stickershop.line-scdn.net/stickershop/v1/sticker/52002734/android/sticker.png'
+      );
+    });
+  });
+
+  describe('sendLinePushSticker()', () => {
+    it('should push sticker payload to LINE Messaging API', async () => {
+      vi.spyOn(global, 'fetch').mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({}),
+      } as any);
+
+      const res = await sendLinePushSticker('U12345', '11537', '52002734');
+      expect(res.success).toBe(true);
+      expect(global.fetch).toHaveBeenCalledWith(
+        'https://api.line.me/v2/bot/message/push',
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify({
+            to: 'U12345',
+            messages: [
+              {
+                type: 'sticker',
+                packageId: '11537',
+                stickerId: '52002734',
+              },
+            ],
+          }),
+        })
+      );
+    });
+
+    it('should handle API failure gracefully', async () => {
+      vi.spyOn(global, 'fetch').mockResolvedValueOnce({
+        ok: false,
+        status: 400,
+        text: async () => 'Invalid sticker',
+      } as any);
+
+      const res = await sendLinePushSticker('U12345', 'invalid', 'invalid');
+      expect(res.success).toBe(false);
+      expect(res.error).toContain('400');
     });
   });
 });

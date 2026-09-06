@@ -19,6 +19,7 @@ import {
   Download,
   X,
   Image as ImageIcon,
+  Sticker,
 } from 'lucide-react';
 import { LineUser, ChatMessage, QuickReplyTemplate, DEFAULT_QUICK_REPLIES } from '@/lib/types';
 import { formatTime } from '@/lib/formatters';
@@ -34,6 +35,7 @@ interface ChatCanvasProps {
   onInputChange: (text: string) => void;
   onSendMessage: (textToSend?: string) => void;
   onSendImage?: (file: File, caption?: string) => void;
+  onSendSticker?: (packageId: string, stickerId: string) => void;
   isSending: boolean;
   showEmojiPicker: boolean;
   onToggleEmojiPicker: () => void;
@@ -45,6 +47,19 @@ interface ChatCanvasProps {
   quickReplies?: QuickReplyTemplate[];
   onOpenQuickRepliesModal?: () => void;
 }
+
+export const LINE_STICKER_PRESETS = [
+  { packageId: '446', stickerId: '1988', name: 'OK!' },
+  { packageId: '446', stickerId: '1989', name: 'ขอบคุณ' },
+  { packageId: '446', stickerId: '1990', name: 'บ๊ายบาย' },
+  { packageId: '446', stickerId: '2000', name: 'เยี่ยม' },
+  { packageId: '446', stickerId: '2001', name: 'รักเลย' },
+  { packageId: '446', stickerId: '2002', name: 'ขอโทษ/ไหว้' },
+  { packageId: '11537', stickerId: '52002734', name: 'Brown ยกนิ้ว' },
+  { packageId: '11537', stickerId: '52002735', name: 'Brown ส่งหัวใจ' },
+  { packageId: '11537', stickerId: '52002738', name: 'Cony ดีใจ' },
+  { packageId: '11537', stickerId: '52002739', name: 'Sally แอบดู' },
+];
 
 const EMOJIS = ['😊', '🙏', '👍', '❤️', '🔥', '✨', '👏', '🎉', '⏳', '💡'];
 
@@ -69,11 +84,13 @@ export function ChatCanvas({
   quickReplies = DEFAULT_QUICK_REPLIES,
   onOpenQuickRepliesModal,
   onSendImage,
+  onSendSticker,
 }: ChatCanvasProps) {
   const [copiedMsgId, setCopiedMsgId] = useState<string | null>(null);
   const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+  const [showStickerPicker, setShowStickerPicker] = useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -388,7 +405,44 @@ export function ChatCanvas({
                 )}
 
                 <div className="message-bubble-wrapper">
-                  <div className="message-bubble">
+                  <div
+                    className={`message-bubble ${
+                      msg.stickerUrl && (!msg.text || msg.text === '🏷️ [สติกเกอร์]')
+                        ? 'sticker-bubble'
+                        : ''
+                    }`}
+                  >
+                    {/* LINE Sticker Rendering */}
+                    {msg.stickerUrl && (
+                      <div
+                        style={{
+                          marginBottom: msg.text && msg.text !== '🏷️ [สติกเกอร์]' ? 6 : 0,
+                          cursor: 'pointer',
+                          display: 'inline-block',
+                          filter: 'drop-shadow(0 4px 10px rgba(0, 0, 0, 0.12))',
+                          transition: 'transform 0.15s ease',
+                        }}
+                        data-testid="chat-sticker-btn"
+                        onClick={() => setLightboxUrl(msg.stickerUrl || null)}
+                        title="คลิกเพื่อดูสติกเกอร์ขนาดใหญ่"
+                      >
+                        <img
+                          src={msg.stickerUrl}
+                          alt="LINE Sticker"
+                          data-testid="chat-sticker-img"
+                          style={{
+                            width: 140,
+                            height: 140,
+                            maxWidth: '100%',
+                            objectFit: 'contain',
+                            display: 'block',
+                          }}
+                          loading="lazy"
+                        />
+                      </div>
+                    )}
+
+                    {/* Image Attachment Rendering */}
                     {msg.imageUrl && (
                       <div
                         style={{
@@ -438,28 +492,35 @@ export function ChatCanvas({
                         </div>
                       </div>
                     )}
-                    {(!msg.imageUrl || (msg.text && msg.text !== '📷 [รูปภาพ]')) && (
+
+                    {/* Text Message (Hide placeholder labels if image or sticker is shown) */}
+                    {((!msg.imageUrl && !msg.stickerUrl) ||
+                      (msg.text && msg.text !== '📷 [รูปภาพ]' && msg.text !== '🏷️ [สติกเกอร์]')) && (
                       <span>{msg.text}</span>
                     )}
-                    <button
-                      onClick={() => copyMessage(msg.text, msg.id)}
-                      style={{
-                        position: 'absolute',
-                        top: 6,
-                        right: 6,
-                        opacity: copiedMsgId === msg.id ? 1 : 0,
-                        background: 'rgba(0,0,0,0.3)',
-                        border: 'none',
-                        color: '#FFFFFF',
-                        borderRadius: 4,
-                        padding: '2px 4px',
-                        cursor: 'pointer',
-                        fontSize: 10,
-                        transition: 'opacity 0.2s',
-                      }}
-                    >
-                      {copiedMsgId === msg.id ? 'Copied' : 'Copy'}
-                    </button>
+
+                    {/* Copy Button (only if text is meaningful) */}
+                    {msg.text && msg.text !== '📷 [รูปภาพ]' && msg.text !== '🏷️ [สติกเกอร์]' && (
+                      <button
+                        onClick={() => copyMessage(msg.text, msg.id)}
+                        style={{
+                          position: 'absolute',
+                          top: 6,
+                          right: 6,
+                          opacity: copiedMsgId === msg.id ? 1 : 0,
+                          background: 'rgba(0,0,0,0.3)',
+                          border: 'none',
+                          color: '#FFFFFF',
+                          borderRadius: 4,
+                          padding: '2px 4px',
+                          cursor: 'pointer',
+                          fontSize: 10,
+                          transition: 'opacity 0.2s',
+                        }}
+                      >
+                        {copiedMsgId === msg.id ? 'Copied' : 'Copy'}
+                      </button>
+                    )}
                   </div>
                   <div className="message-meta">
                     <span>{formatTime(msg.createdAt)}</span>
@@ -549,6 +610,124 @@ export function ChatCanvas({
                 {em}
               </button>
             ))}
+          </div>
+        )}
+
+        {/* LINE Official Sticker Tray */}
+        {showStickerPicker && (
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 8,
+              marginBottom: 10,
+              background: 'var(--bg-surface-elevated)',
+              padding: '10px 14px',
+              borderRadius: 'var(--radius-md)',
+              border: '1px solid var(--border-medium)',
+              animation: 'fadeIn 0.2s ease',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: 'var(--text-secondary)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                }}
+              >
+                <Sticker size={14} color="var(--line-green)" />
+                <span>ส่งสติกเกอร์ LINE ทางการ (คลิกเพื่อส่งทันที)</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowStickerPicker(false)}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: 'var(--text-muted)',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                }}
+                title="ปิด"
+              >
+                <X size={14} />
+              </button>
+            </div>
+            <div
+              style={{
+                display: 'flex',
+                gap: 10,
+                overflowX: 'auto',
+                paddingBottom: 4,
+                scrollbarWidth: 'thin',
+              }}
+            >
+              {LINE_STICKER_PRESETS.map((stk) => {
+                const url = `https://stickershop.line-scdn.net/stickershop/v1/sticker/${stk.stickerId}/android/sticker.png`;
+                return (
+                  <button
+                    key={stk.stickerId}
+                    type="button"
+                    onClick={() => {
+                      if (onSendSticker) {
+                        onSendSticker(stk.packageId, stk.stickerId);
+                        setShowStickerPicker(false);
+                      }
+                    }}
+                    disabled={isSending}
+                    style={{
+                      background: 'rgba(255, 255, 255, 0.04)',
+                      border: '1px solid var(--border-subtle)',
+                      borderRadius: 10,
+                      padding: '6px 8px',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      gap: 4,
+                      minWidth: 72,
+                      transition: 'all 0.15s ease',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.transform = 'scale(1.08)';
+                      e.currentTarget.style.borderColor = 'var(--line-green)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.transform = 'scale(1)';
+                      e.currentTarget.style.borderColor = 'var(--border-subtle)';
+                    }}
+                    title={`ส่งสติกเกอร์ ${stk.name}`}
+                  >
+                    <img
+                      src={url}
+                      alt={stk.name}
+                      style={{ width: 52, height: 52, objectFit: 'contain' }}
+                      loading="lazy"
+                    />
+                    <span
+                      style={{
+                        fontSize: 10.5,
+                        color: 'var(--text-secondary)',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {stk.name}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
         )}
 
@@ -646,10 +825,27 @@ export function ChatCanvas({
               <button
                 type="button"
                 className="action-btn"
-                onClick={onToggleEmojiPicker}
+                onClick={() => {
+                  onToggleEmojiPicker();
+                  if (showStickerPicker) setShowStickerPicker(false);
+                }}
                 title="ใส่อิโมจิ"
               >
                 <Smile size={18} />
+              </button>
+
+              <button
+                id="sticker-picker-btn"
+                type="button"
+                className="action-btn"
+                onClick={() => {
+                  setShowStickerPicker(!showStickerPicker);
+                  if (showEmojiPicker) onToggleEmojiPicker();
+                }}
+                style={showStickerPicker ? { color: 'var(--line-green)' } : undefined}
+                title="ส่งสติกเกอร์ LINE"
+              >
+                <Sticker size={18} />
               </button>
 
               <input

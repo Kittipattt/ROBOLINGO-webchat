@@ -165,6 +165,27 @@ describe('Database & Persistence Module (src/lib/db.ts)', () => {
       const user = getUserById('U666');
       expect(user?.lastMessage).toBe('📷 [รูปภาพ]');
     });
+
+    it('should store and retrieve sticker messages with stickerUrl, packageId, and stickerId', () => {
+      const msg = addMessage({
+        userId: 'U777',
+        sender: 'user',
+        text: '',
+        stickerUrl: 'https://stickershop.line-scdn.net/stickershop/v1/sticker/52002734/android/sticker.png',
+        packageId: '11537',
+        stickerId: '52002734',
+        messageType: 'sticker',
+      });
+
+      expect(msg.stickerUrl).toBe('https://stickershop.line-scdn.net/stickershop/v1/sticker/52002734/android/sticker.png');
+      expect(msg.packageId).toBe('11537');
+      expect(msg.stickerId).toBe('52002734');
+      expect(msg.messageType).toBe('sticker');
+      expect(msg.text).toBe('🏷️ [สติกเกอร์]');
+
+      const user = getUserById('U777');
+      expect(user?.lastMessage).toBe('🏷️ [สติกเกอร์]');
+    });
   });
 
   describe('Conversation & User Deletion', () => {

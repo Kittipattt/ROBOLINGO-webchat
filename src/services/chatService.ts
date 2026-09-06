@@ -44,11 +44,20 @@ export const chatService = {
     userId: string,
     text: string,
     imageUrl?: string,
-    messageType?: 'text' | 'image'
+    messageType?: 'text' | 'image' | 'sticker',
+    stickerData?: { packageId?: string; stickerId?: string; stickerUrl?: string }
   ): Promise<ChatMessage> {
     const data = await apiClient<{ success: boolean; message: ChatMessage }>('/api/messages', {
       method: 'POST',
-      body: JSON.stringify({ userId, text, imageUrl, messageType }),
+      body: JSON.stringify({
+        userId,
+        text,
+        imageUrl,
+        messageType,
+        packageId: stickerData?.packageId,
+        stickerId: stickerData?.stickerId,
+        stickerUrl: stickerData?.stickerUrl,
+      }),
     });
     return data.message;
   },

@@ -200,3 +200,55 @@ export async function sendLinePushImage(
   }
 }
 
+/**
+ * Get public CDN URL for a LINE sticker
+ */
+export function getLineStickerUrl(stickerId: string | number): string {
+  return `https://stickershop.line-scdn.net/stickershop/v1/sticker/${stickerId}/android/sticker.png`;
+}
+
+/**
+ * Push a sticker message to a LINE user
+ */
+export async function sendLinePushSticker(
+  userId: string,
+  packageId: string | number,
+  stickerId: string | number
+): Promise<{ success: boolean; error?: string }> {
+  const token = getChannelAccessToken();
+  if (!token) {
+    return { success: false, error: 'LINE_CHANNEL_ACCESS_TOKEN is not configured' };
+  }
+
+  try {
+    const res = await fetch('https://api.line.me/v2/bot/message/push', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        to: userId,
+        messages: [
+          {
+            type: 'sticker',
+            packageId: String(packageId),
+            stickerId: String(stickerId),
+          },
+        ],
+      }),
+    });
+
+    if (!res.ok) {
+      const errText = await res.text();
+      console.error(`[LINE] Push sticker failed (${res.status}): ${errText}`);
+      return { success: false, error: `LINE API returned ${res.status}: ${errText}` };
+    }
+
+    return { success: true };
+  } catch (error: any) {
+    console.error('[LINE] Error sending push sticker:', error);
+    return { success: false, error: error?.message || 'Network error sending push sticker' };
+  }
+}
+

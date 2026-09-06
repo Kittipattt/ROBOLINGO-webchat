@@ -110,6 +110,33 @@ describe('API Route Handlers (src/app/api)', () => {
       expect(data.message.messageType).toBe('image');
     });
 
+    it('POST /api/messages should support sending sticker messages', async () => {
+      vi.spyOn(global, 'fetch').mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({}),
+      } as any);
+
+      const req = new NextRequest('http://localhost:3000/api/messages', {
+        method: 'POST',
+        body: JSON.stringify({
+          userId: 'U_client_1',
+          packageId: '11537',
+          stickerId: '52002734',
+          messageType: 'sticker',
+        }),
+      });
+
+      const res = await postMessage(req);
+      expect(res.status).toBe(200);
+
+      const data = await res.json();
+      expect(data.success).toBe(true);
+      expect(data.message.messageType).toBe('sticker');
+      expect(data.message.packageId).toBe('11537');
+      expect(data.message.stickerId).toBe('52002734');
+      expect(data.message.stickerUrl).toContain('52002734');
+    });
+
     it('DELETE /api/messages should reject missing userId with 400', async () => {
       const req = new NextRequest('http://localhost:3000/api/messages');
       const res = await deleteMessagesApi(req);
@@ -271,6 +298,45 @@ describe('API Route Handlers (src/app/api)', () => {
             displayName: 'Image Sender',
           }),
         } as any);
+
+      const req = new NextRequest('http://localhost:3000/api/line/webhook', {
+        method: 'POST',
+        headers: {
+          'x-line-signature': validSignature,
+        },
+        body: rawBody,
+      });
+
+      const res = await postWebhook(req);
+      expect(res.status).toBe(200);
+
+      const data = await res.json();
+      expect(data.status).toBe('ok');
+    });
+
+    it('POST /api/line/webhook should handle sticker message events and store stickerUrl', async () => {
+      const payload = {
+        events: [
+          {
+            type: 'message',
+            timestamp: Date.now(),
+            source: { type: 'user', userId: 'U_webhook_sticker_test' },
+            message: { id: 'stk_msg_111', type: 'sticker', packageId: '11537', stickerId: '52002734' },
+          },
+        ],
+      };
+      const rawBody = JSON.stringify(payload);
+      const validSignature = crypto
+        .createHmac('sha256', secret)
+        .update(rawBody)
+        .digest('base64');
+
+      vi.spyOn(global, 'fetch').mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          displayName: 'Sticker Sender',
+        }),
+      } as any);
 
       const req = new NextRequest('http://localhost:3000/api/line/webhook', {
         method: 'POST',
