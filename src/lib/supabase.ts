@@ -4,7 +4,11 @@ import { LineUser, ChatMessage, QuickReplyTemplate } from './types';
 let cachedClient: SupabaseClient | null = null;
 
 export function getSupabaseUrl(): string | undefined {
-  return process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
+  let url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
+  if (url) {
+    url = url.trim().replace(/\/rest\/v1\/?$/, '').replace(/\/+$/, '');
+  }
+  return url;
 }
 
 export function getSupabaseKey(): string | undefined {
