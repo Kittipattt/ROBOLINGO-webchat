@@ -57,11 +57,12 @@ export default function WebChatPage() {
     onMessageSyncedToUser: updateUserLastMessage,
   });
 
-  // Automatically sync incoming message from users poll into chat history
+  // Automatically sync incoming customer messages from users poll into chat history
   useEffect(() => {
     users.forEach((u) => {
-      if (u.lastMessage && u.lastMessageAt) {
-        syncIncomingUserMessage(u.userId, u.lastMessage, u.lastMessageAt);
+      // Only sync if the message was sent by the customer, never our own agent messages
+      if (u.lastMessage && u.lastMessageAt && u.lastSender !== 'agent') {
+        syncIncomingUserMessage(u.userId, u.lastMessage, u.lastMessageAt, u.lastSender || 'user');
       }
     });
   }, [users, syncIncomingUserMessage]);

@@ -40,17 +40,22 @@ function deduplicateMessages(messages: ChatMessage[]): ChatMessage[] {
           !other.id.startsWith('temp_') &&
           !other.id.includes('_sync') &&
           !other.id.includes('_sel') &&
-          other.sender === item.sender &&
-          ((item.messageType === 'sticker' &&
-            other.messageType === 'sticker' &&
-            item.stickerId === other.stickerId) ||
-            (item.messageType === 'image' && other.messageType === 'image') ||
-            other.text === item.text) &&
+          (
+            // Matching sender and content
+            (other.sender === item.sender &&
+              ((item.messageType === 'sticker' &&
+                other.messageType === 'sticker' &&
+                item.stickerId === other.stickerId) ||
+                (item.messageType === 'image' && other.messageType === 'image') ||
+                other.text === item.text)) ||
+            // Or exact text match within 20s (prevents synthetic message from overriding real agent message)
+            (item.text && other.text === item.text)
+          ) &&
           Math.abs(other.createdAt - item.createdAt) < 20000
       );
 
       if (hasOfficial) {
-        // Official server message is already present, drop this temporary duplicate!
+        // Official server message is already present, drop this temporary/synthetic duplicate!
         continue;
       }
     }
@@ -150,14 +155,16 @@ export function useChatMessages(options: UseChatMessagesOptions = {}) {
 
   // Sync synthetic message directly from user profile updates (e.g. from sidebar poll)
   const syncIncomingUserMessage = useCallback(
-    (userId: string, text: string, timestamp: number) => {
+    (userId: string, text: string, timestamp: number, sender: 'user' | 'agent' = 'user') => {
       if (!userId || !text || !timestamp) return;
+      // Never synthesize an agent message as a customer message
+      if (sender === 'agent') return;
 
       setMessagesByUserId((prevMap) => {
         const list = prevMap[userId] || [];
         const exists = list.some(
           (m) =>
-            (m.text === text && Math.abs(m.createdAt - timestamp) < 5000) ||
+            (m.text === text && Math.abs(m.createdAt - timestamp) < 15000) ||
             m.createdAt === timestamp
         );
         if (!exists) {
