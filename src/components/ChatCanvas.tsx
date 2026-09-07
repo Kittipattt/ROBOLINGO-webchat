@@ -20,6 +20,7 @@ import {
   X,
   Image as ImageIcon,
   Sticker,
+  ChevronLeft,
 } from 'lucide-react';
 import { LineUser, ChatMessage, QuickReplyTemplate, DEFAULT_QUICK_REPLIES } from '@/lib/types';
 import { formatTime } from '@/lib/formatters';
@@ -46,6 +47,7 @@ interface ChatCanvasProps {
   onOpenDeleteModal?: () => void;
   quickReplies?: QuickReplyTemplate[];
   onOpenQuickRepliesModal?: () => void;
+  onBackToList?: () => void;
 }
 
 export const LINE_STICKER_PRESETS = [
@@ -85,6 +87,7 @@ export function ChatCanvas({
   onOpenQuickRepliesModal,
   onSendImage,
   onSendSticker,
+  onBackToList,
 }: ChatCanvasProps) {
   const [copiedMsgId, setCopiedMsgId] = useState<string | null>(null);
   const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
@@ -195,6 +198,18 @@ export function ChatCanvas({
       {/* Header */}
       <div className="chat-header">
         <div className="header-user-info">
+          {onBackToList && (
+            <button
+              type="button"
+              className="mobile-back-btn"
+              onClick={onBackToList}
+              aria-label="ย้อนกลับไปหน้ารายชื่อแชท"
+              title="กลับหน้ารายชื่อแชท"
+            >
+              <ChevronLeft size={22} />
+            </button>
+          )}
+
           <div className="avatar-container" style={{ width: 44, height: 44 }}>
             {selectedUser.pictureUrl ? (
               <img
@@ -248,8 +263,9 @@ export function ChatCanvas({
         </div>
 
         {/* Right Side Header Controls */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div className="chat-header-actions" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <span
+            className="header-last-active"
             style={{
               fontSize: 12,
               color: 'var(--text-muted)',
@@ -266,6 +282,7 @@ export function ChatCanvas({
           {onOpenDeleteModal && (
             <button
               onClick={onOpenDeleteModal}
+              className="header-delete-btn"
               style={{
                 background: 'rgba(239, 68, 68, 0.08)',
                 border: '1px solid rgba(239, 68, 68, 0.22)',
@@ -283,7 +300,7 @@ export function ChatCanvas({
               title="จัดการ / ลบแชทนี้"
             >
               <Trash2 size={15} />
-              <span>ลบแชท</span>
+              <span className="delete-btn-text">ลบแชท</span>
             </button>
           )}
 
@@ -525,8 +542,8 @@ export function ChatCanvas({
                   <div className="message-meta">
                     <span>{formatTime(msg.createdAt)}</span>
                     {!isUser && (
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
-                        <CheckCheck size={14} color="#A7F3D0" />
+                      <span className="line-delivery-status">
+                        <CheckCheck size={14} className="line-delivery-icon" />
                         <span style={{ fontSize: 10 }}>ส่งเข้า LINE แล้ว</span>
                       </span>
                     )}

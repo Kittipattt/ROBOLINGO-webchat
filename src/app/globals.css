@@ -46,6 +46,7 @@
   --text-secondary: #94A3B8;
   --text-muted: #64748B;
   --text-inverse: #0F172A;
+  --brand-title-gradient: linear-gradient(135deg, #FFFFFF 30%, #94A3B8 100%);
 
   /* Borders & Dividers */
   --border-subtle: rgba(255, 255, 255, 0.07);
@@ -126,6 +127,7 @@
   --text-secondary: #475569;
   --text-muted: #8492A6;
   --text-inverse: #FFFFFF;
+  --brand-title-gradient: linear-gradient(135deg, #0F172A 25%, #334155 100%);
 
   /* Borders & Dividers */
   --border-subtle: rgba(0, 0, 0, 0.08);
@@ -198,6 +200,7 @@ html, body {
   display: flex;
   flex-direction: column;
   height: 100vh;
+  height: 100dvh;
   width: 100vw;
   background: var(--app-bg-gradient);
   position: relative;
@@ -260,7 +263,7 @@ html, body {
   font-size: 18px;
   font-weight: 800;
   letter-spacing: -0.03em;
-  background: linear-gradient(135deg, #FFFFFF 30%, #94A3B8 100%);
+  background: var(--brand-title-gradient);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
@@ -561,7 +564,7 @@ html, body {
 }
 
 .date-pill {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--bg-surface-elevated);
   border: 1px solid var(--border-subtle);
   padding: 4px 14px;
   border-radius: var(--radius-full);
@@ -651,7 +654,27 @@ html, body {
 
 .message-row.agent .message-meta {
   justify-content: flex-end;
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--text-secondary);
+}
+
+[data-theme="dark"] .message-row.agent .message-meta {
+  color: rgba(255, 255, 255, 0.65);
+}
+
+[data-theme="light"] .message-row.agent .message-meta {
+  color: var(--text-secondary);
+}
+
+.line-delivery-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--line-green);
+  font-weight: 600;
+}
+
+.line-delivery-icon {
+  color: var(--line-green);
 }
 
 /* Composer / Input Area */
@@ -700,7 +723,7 @@ html, body {
   align-items: center;
   justify-content: space-between;
   padding-top: 6px;
-  border-top: 1px solid rgba(255, 255, 255, 0.04);
+  border-top: 1px solid var(--border-subtle);
 }
 
 .composer-actions-left {
@@ -765,7 +788,7 @@ html, body {
 }
 
 .quick-reply-chip {
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--bg-surface-elevated);
   border: 1px solid var(--border-subtle);
   color: var(--text-secondary);
   font-size: 12.5px;
@@ -965,3 +988,281 @@ html, body {
     transform: scale(1);
   }
 }
+
+/* ==========================================================================
+   DESKTOP DEFAULT VISIBILITY
+   ========================================================================== */
+.mobile-back-btn {
+  display: none;
+}
+
+.drawer-overlay-backdrop {
+  display: none;
+}
+
+/* ==========================================================================
+   MOBILE RESPONSIVE SYSTEM (<= 768px)
+   Master-Detail view, Dynamic Viewport Height, iOS Safe Area & Zoom fix
+   ========================================================================== */
+@media (max-width: 768px) {
+  /* Dynamic viewport container */
+  .app-container {
+    height: 100dvh;
+    overflow: hidden;
+  }
+
+  /* Compact Top Navbar */
+  .top-navbar {
+    height: 56px;
+    padding: 0 12px;
+  }
+
+  .brand-section {
+    gap: 10px;
+  }
+
+  .brand-icon {
+    width: 34px;
+    height: 34px;
+  }
+
+  .brand-title {
+    font-size: 15.5px;
+  }
+
+  .brand-badge {
+    display: none;
+  }
+
+  .brand-subtitle-row {
+    display: none;
+  }
+
+  .navbar-btn-text {
+    display: none;
+  }
+
+  .top-navbar-actions {
+    gap: 6px;
+  }
+
+  .top-navbar-actions button {
+    padding: 8px !important;
+  }
+
+  /* Master-Detail Navigation */
+  .workspace-grid {
+    position: relative;
+    width: 100%;
+    height: calc(100dvh - 56px);
+  }
+
+  /* View 1: List Mode - Show Sidebar Fullscreen */
+  .workspace-grid[data-mobile-view="list"] .sidebar {
+    display: flex !important;
+    width: 100% !important;
+    min-width: 100% !important;
+    max-width: 100% !important;
+    border-right: none !important;
+    height: 100%;
+  }
+
+  .workspace-grid[data-mobile-view="list"] .chat-canvas {
+    display: none !important;
+  }
+
+  .workspace-grid[data-mobile-view="list"] .detail-drawer {
+    display: none !important;
+  }
+
+  .workspace-grid[data-mobile-view="list"] .drawer-overlay-backdrop {
+    display: none !important;
+  }
+
+  /* View 2: Chat Mode - Show ChatCanvas Fullscreen */
+  .workspace-grid[data-mobile-view="chat"] .sidebar {
+    display: none !important;
+  }
+
+  .workspace-grid[data-mobile-view="chat"] .chat-canvas {
+    display: flex !important;
+    width: 100% !important;
+    min-width: 100% !important;
+    max-width: 100% !important;
+    height: 100%;
+  }
+
+  /* Mobile Back Button */
+  .mobile-back-btn {
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
+    border-radius: var(--radius-sm);
+    background: var(--bg-surface-elevated);
+    border: 1px solid var(--border-subtle);
+    color: var(--text-primary);
+    cursor: pointer;
+    margin-right: 4px;
+    flex-shrink: 0;
+    transition: transform 0.15s ease, background 0.15s ease;
+  }
+
+  .mobile-back-btn:active {
+    transform: scale(0.92);
+    background: var(--bg-surface-hover);
+  }
+
+  /* Chat Header */
+  .chat-header {
+    height: 58px;
+    padding: 0 10px;
+    gap: 8px;
+  }
+
+  .header-user-info {
+    gap: 10px;
+    min-width: 0;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  .header-user-info h3 {
+    font-size: 15px !important;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 120px;
+  }
+
+  .header-user-info .badge-pill {
+    display: none;
+  }
+
+  .header-last-active {
+    display: none !important;
+  }
+
+  .chat-header-actions {
+    gap: 6px !important;
+  }
+
+  .header-delete-btn .delete-btn-text {
+    display: none !important;
+  }
+
+  .header-delete-btn {
+    padding: 8px !important;
+    gap: 0 !important;
+  }
+
+  /* Chat Stream & Bubbles */
+  .chat-stream {
+    padding: 14px 10px;
+    gap: 12px;
+  }
+
+  .message-row {
+    max-width: 86%;
+    gap: 8px;
+  }
+
+  .message-bubble {
+    font-size: 14px;
+    padding: 10px 14px;
+    border-radius: 16px;
+  }
+
+  /* Quick Replies Horizontal Carousel */
+  .quick-replies-carousel {
+    gap: 6px;
+    margin-bottom: 8px;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .quick-replies-carousel::-webkit-scrollbar {
+    display: none;
+  }
+
+  .quick-reply-chip {
+    font-size: 12px;
+    padding: 6px 12px;
+    flex-shrink: 0;
+  }
+
+  /* Composer & iOS Safe Area Bottom */
+  .composer-container {
+    padding: 8px 10px calc(10px + env(safe-area-inset-bottom, 0px)) 10px;
+  }
+
+  .composer-box {
+    padding: 10px 12px 8px 12px;
+    border-radius: var(--radius-md);
+  }
+
+  /* CRITICAL: 16px font prevents iOS Safari automatic viewport zoom */
+  .composer-textarea {
+    font-size: 16px !important;
+    line-height: 1.45;
+    min-height: 24px;
+  }
+
+  .send-btn-pro {
+    padding: 8px 14px;
+    font-size: 13px;
+  }
+
+  .action-btn {
+    width: 34px;
+    height: 34px;
+  }
+
+  /* Slide-over Customer Detail Drawer */
+  .drawer-overlay-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.65);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    z-index: 90;
+    animation: fadeIn 0.2s ease;
+  }
+
+  .detail-drawer {
+    position: fixed !important;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: min(86vw, 360px) !important;
+    height: 100% !important;
+    height: 100dvh !important;
+    z-index: 95;
+    border-left: 1px solid var(--border-medium);
+    box-shadow: -10px 0 40px rgba(0, 0, 0, 0.5);
+    animation: drawerSlideInMobile 0.25s var(--ease-spring);
+  }
+
+  @keyframes drawerSlideInMobile {
+    from {
+      transform: translateX(100%);
+    }
+    to {
+      transform: translateX(0);
+    }
+  }
+
+  /* Responsive Modals */
+  .modal-dialog-pro {
+    width: 95%;
+    max-width: 95vw;
+    padding: 20px 16px;
+    border-radius: var(--radius-md);
+    max-height: 90dvh;
+    overflow-y: auto;
+  }
+}
+

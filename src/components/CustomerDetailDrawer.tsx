@@ -22,8 +22,10 @@ export function CustomerDetailDrawer({
   onOpenDeleteModal,
 }: CustomerDetailDrawerProps) {
   return (
-    <aside className="detail-drawer">
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+    <>
+      <div className="drawer-overlay-backdrop" onClick={onClose} aria-hidden="true" />
+      <aside className="detail-drawer">
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <span
           style={{
             fontSize: 13,
@@ -238,5 +240,6 @@ export function CustomerDetailDrawer({
         </div>
       )}
     </aside>
+    </>
   );
 }
