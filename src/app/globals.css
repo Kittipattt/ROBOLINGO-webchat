@@ -46,6 +46,7 @@
   --text-secondary: #94A3B8;
   --text-muted: #64748B;
   --text-inverse: #0F172A;
+  --brand-title-gradient: linear-gradient(135deg, #FFFFFF 30%, #94A3B8 100%);
 
   /* Borders & Dividers */
   --border-subtle: rgba(255, 255, 255, 0.07);
@@ -126,6 +127,7 @@
   --text-secondary: #475569;
   --text-muted: #8492A6;
   --text-inverse: #FFFFFF;
+  --brand-title-gradient: linear-gradient(135deg, #0F172A 25%, #334155 100%);
 
   /* Borders & Dividers */
   --border-subtle: rgba(0, 0, 0, 0.08);
@@ -261,7 +263,7 @@ html, body {
   font-size: 18px;
   font-weight: 800;
   letter-spacing: -0.03em;
-  background: linear-gradient(135deg, #FFFFFF 30%, #94A3B8 100%);
+  background: var(--brand-title-gradient);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
@@ -562,7 +564,7 @@ html, body {
 }
 
 .date-pill {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--bg-surface-elevated);
   border: 1px solid var(--border-subtle);
   padding: 4px 14px;
   border-radius: var(--radius-full);
@@ -652,7 +654,27 @@ html, body {
 
 .message-row.agent .message-meta {
   justify-content: flex-end;
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--text-secondary);
+}
+
+[data-theme="dark"] .message-row.agent .message-meta {
+  color: rgba(255, 255, 255, 0.65);
+}
+
+[data-theme="light"] .message-row.agent .message-meta {
+  color: var(--text-secondary);
+}
+
+.line-delivery-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--line-green);
+  font-weight: 600;
+}
+
+.line-delivery-icon {
+  color: var(--line-green);
 }
 
 /* Composer / Input Area */
@@ -701,7 +723,7 @@ html, body {
   align-items: center;
   justify-content: space-between;
   padding-top: 6px;
-  border-top: 1px solid rgba(255, 255, 255, 0.04);
+  border-top: 1px solid var(--border-subtle);
 }
 
 .composer-actions-left {
@@ -766,7 +788,7 @@ html, body {
 }
 
 .quick-reply-chip {
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--bg-surface-elevated);
   border: 1px solid var(--border-subtle);
   color: var(--text-secondary);
   font-size: 12.5px;

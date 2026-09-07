@@ -542,8 +542,8 @@ export function ChatCanvas({
                   <div className="message-meta">
                     <span>{formatTime(msg.createdAt)}</span>
                     {!isUser && (
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
-                        <CheckCheck size={14} color="#A7F3D0" />
+                      <span className="line-delivery-status">
+                        <CheckCheck size={14} className="line-delivery-icon" />
                         <span style={{ fontSize: 10 }}>ส่งเข้า LINE แล้ว</span>
                       </span>
                     )}
