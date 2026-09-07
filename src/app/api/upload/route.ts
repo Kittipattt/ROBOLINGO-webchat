@@ -3,6 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
 import { getUploadsDir } from '@/lib/db';
+import { isSupabaseConfigured, uploadImageToSupabase } from '@/lib/supabase';
 
 export const dynamic = 'force-dynamic';
 
@@ -55,16 +56,27 @@ export async function POST(req: NextRequest) {
       : '.jpg';
 
     const filename = `img_${Date.now()}_${crypto.randomBytes(4).toString('hex')}${ext}`;
-    const uploadsDir = getUploadsDir();
-    const filePath = path.join(uploadsDir, filename);
 
-    fs.writeFileSync(filePath, buffer);
+    let finalUrl = `/api/images/${filename}`;
 
-    const relativeUrl = `/api/images/${filename}`;
+    // 1. If Supabase is configured, upload to Supabase Storage bucket
+    if (isSupabaseConfigured()) {
+      const publicUrl = await uploadImageToSupabase(buffer, filename, blob.type);
+      if (publicUrl) {
+        finalUrl = publicUrl;
+      }
+    }
+
+    // 2. Fallback to local filesystem storage if not on cloud storage
+    if (!finalUrl.startsWith('http')) {
+      const uploadsDir = getUploadsDir();
+      const filePath = path.join(uploadsDir, filename);
+      fs.writeFileSync(filePath, buffer);
+    }
 
     return NextResponse.json({
       success: true,
-      url: relativeUrl,
+      url: finalUrl,
       filename,
       size: blob.size,
       mimeType: blob.type,

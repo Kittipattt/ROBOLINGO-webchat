@@ -32,8 +32,8 @@ describe('Database & Persistence Module (src/lib/db.ts)', () => {
   });
 
   describe('User Management', () => {
-    it('should upsert a new LINE user profile', () => {
-      const user = upsertUser({
+    it('should upsert a new LINE user profile', async () => {
+      const user = await upsertUser({
         userId: 'U111',
         displayName: 'Somchai',
         pictureUrl: 'https://example.com/pic.jpg',
@@ -44,68 +44,68 @@ describe('Database & Persistence Module (src/lib/db.ts)', () => {
       expect(user.displayName).toBe('Somchai');
       expect(user.unreadCount).toBe(0);
 
-      const fetched = getUserById('U111');
+      const fetched = await getUserById('U111');
       expect(fetched?.displayName).toBe('Somchai');
     });
 
-    it('should increment unread count when incrementUnread is true', () => {
-      upsertUser({
+    it('should increment unread count when incrementUnread is true', async () => {
+      await upsertUser({
         userId: 'U222',
         displayName: 'Kittipat',
         incrementUnread: true,
       });
 
-      let user = getUserById('U222');
+      let user = await getUserById('U222');
       expect(user?.unreadCount).toBe(1);
 
-      upsertUser({
+      await upsertUser({
         userId: 'U222',
         incrementUnread: true,
       });
 
-      user = getUserById('U222');
+      user = await getUserById('U222');
       expect(user?.unreadCount).toBe(2);
     });
 
-    it('should reset unread count when marked as read', () => {
-      upsertUser({
+    it('should reset unread count when marked as read', async () => {
+      await upsertUser({
         userId: 'U333',
         displayName: 'Alice',
         incrementUnread: true,
       });
 
-      markUserAsRead('U333');
-      const user = getUserById('U333');
+      await markUserAsRead('U333');
+      const user = await getUserById('U333');
       expect(user?.unreadCount).toBe(0);
     });
 
-    it('should sort users by lastMessageAt descending', () => {
-      upsertUser({
+    it('should sort users by lastMessageAt descending', async () => {
+      await upsertUser({
         userId: 'U_old',
         displayName: 'Old User',
         lastMessageAt: 1000,
       });
 
-      upsertUser({
+      await upsertUser({
         userId: 'U_new',
         displayName: 'New User',
         lastMessageAt: 2000,
       });
 
-      const users = getAllUsers();
+      const users = await getAllUsers();
       expect(users[0].userId).toBe('U_new');
       expect(users[1].userId).toBe('U_old');
     });
 
-    it('should never downgrade an existing real displayName to LINE User', () => {
-      upsertUser({
+    it('should never downgrade an existing real displayName to LINE User', async () => {
+      await upsertUser({
         userId: 'U_jajah',
         displayName: 'Ja_jah 🏢',
         pictureUrl: 'https://example.com/avatar.jpg',
       });
 
       // Subsequent update with missing or default 'LINE User' displayName
-      const updated = upsertUser({
+      const updated = await upsertUser({
         userId: 'U_jajah',
         displayName: 'LINE User',
         lastMessage: 'ขอซื้ออโวคาโด้',
@@ -117,40 +117,40 @@ describe('Database & Persistence Module (src/lib/db.ts)', () => {
   });
 
   describe('Message Management', () => {
-    it('should store and retrieve messages by userId', () => {
-      const msg1 = addMessage({
+    it('should store and retrieve messages by userId', async () => {
+      await addMessage({
         userId: 'U444',
         sender: 'user',
         text: 'ข้อความจากผู้ใช้',
       });
 
-      const msg2 = addMessage({
+      await addMessage({
         userId: 'U444',
         sender: 'agent',
         text: 'ข้อความตอบกลับจากแอดมิน',
       });
 
-      const conversation = getMessages('U444');
+      const conversation = await getMessages('U444');
       expect(conversation).toHaveLength(2);
       expect(conversation[0].text).toBe('ข้อความจากผู้ใช้');
       expect(conversation[1].text).toBe('ข้อความตอบกลับจากแอดมิน');
     });
 
-    it('should update user lastMessage and lastMessageAt when message is added', () => {
-      addMessage({
+    it('should update user lastMessage and lastMessageAt when message is added', async () => {
+      await addMessage({
         userId: 'U555',
         sender: 'user',
         text: 'ข้อความล่าสุด',
       });
 
-      const user = getUserById('U555');
+      const user = await getUserById('U555');
       expect(user).not.toBeNull();
       expect(user?.lastMessage).toBe('ข้อความล่าสุด');
       expect(user?.unreadCount).toBe(1); // User message increments unread
     });
 
-    it('should store and retrieve image messages with imageUrl and messageType', () => {
-      const msg = addMessage({
+    it('should store and retrieve image messages with imageUrl and messageType', async () => {
+      const msg = await addMessage({
         userId: 'U666',
         sender: 'user',
         text: '',
@@ -162,12 +162,12 @@ describe('Database & Persistence Module (src/lib/db.ts)', () => {
       expect(msg.messageType).toBe('image');
       expect(msg.text).toBe('📷 [รูปภาพ]');
 
-      const user = getUserById('U666');
+      const user = await getUserById('U666');
       expect(user?.lastMessage).toBe('📷 [รูปภาพ]');
     });
 
-    it('should store and retrieve sticker messages with stickerUrl, packageId, and stickerId', () => {
-      const msg = addMessage({
+    it('should store and retrieve sticker messages with stickerUrl, packageId, and stickerId', async () => {
+      const msg = await addMessage({
         userId: 'U777',
         sender: 'user',
         text: '',
@@ -183,75 +183,76 @@ describe('Database & Persistence Module (src/lib/db.ts)', () => {
       expect(msg.messageType).toBe('sticker');
       expect(msg.text).toBe('🏷️ [สติกเกอร์]');
 
-      const user = getUserById('U777');
+      const user = await getUserById('U777');
       expect(user?.lastMessage).toBe('🏷️ [สติกเกอร์]');
     });
   });
 
   describe('Conversation & User Deletion', () => {
-    it('clearUserMessages should remove all messages for a user and reset lastMessage to empty', () => {
-      upsertUser({
+    it('clearUserMessages should remove all messages for a user and reset lastMessage to empty', async () => {
+      await upsertUser({
         userId: 'U_clear_test',
         displayName: 'Target User',
         lastMessage: 'ก่อนล้าง',
         incrementUnread: true,
       });
 
-      addMessage({
+      await addMessage({
         userId: 'U_clear_test',
         sender: 'user',
         text: 'ข้อความที่จะถูกลบ',
       });
 
-      expect(getMessages('U_clear_test')).toHaveLength(1);
+      expect(await getMessages('U_clear_test')).toHaveLength(1);
 
-      clearUserMessages('U_clear_test');
+      await clearUserMessages('U_clear_test');
 
-      expect(getMessages('U_clear_test')).toHaveLength(0);
-      const user = getUserById('U_clear_test');
+      expect(await getMessages('U_clear_test')).toHaveLength(0);
+      const user = await getUserById('U_clear_test');
       expect(user).not.toBeNull();
       expect(user?.lastMessage).toBe('');
       expect(user?.unreadCount).toBe(0);
     });
 
-    it('deleteUser should remove both user profile and all associated messages', () => {
-      upsertUser({
+    it('deleteUser should remove both user profile and all associated messages', async () => {
+      await upsertUser({
         userId: 'U_delete_test',
         displayName: 'User to Delete',
       });
 
-      addMessage({
+      await addMessage({
         userId: 'U_delete_test',
         sender: 'user',
         text: 'ข้อความของผู้ใช้ที่จะถูกลบ',
       });
 
-      expect(getUserById('U_delete_test')).not.toBeNull();
-      expect(getMessages('U_delete_test')).toHaveLength(1);
+      expect(await getUserById('U_delete_test')).not.toBeNull();
+      expect(await getMessages('U_delete_test')).toHaveLength(1);
 
-      const deleted = deleteUser('U_delete_test');
+      const deleted = await deleteUser('U_delete_test');
       expect(deleted).toBe(true);
 
-      expect(getUserById('U_delete_test')).toBeNull();
-      expect(getMessages('U_delete_test')).toHaveLength(0);
-      expect(getAllUsers().some((u) => u.userId === 'U_delete_test')).toBe(false);
+      expect(await getUserById('U_delete_test')).toBeNull();
+      expect(await getMessages('U_delete_test')).toHaveLength(0);
+      const allUsers = await getAllUsers();
+      expect(allUsers.some((u) => u.userId === 'U_delete_test')).toBe(false);
     });
   });
 
   describe('Quick Reply Templates Management', () => {
-    it('should return default quick replies when database is empty', () => {
-      const replies = getDbQuickReplies();
+    it('should return default quick replies when database is empty', async () => {
+      const replies = await getDbQuickReplies();
       expect(replies.length).toBeGreaterThanOrEqual(4);
       expect(replies[0].text).toContain('สวัสดีครับ');
     });
 
-    it('should save and retrieve custom quick reply templates', () => {
+    it('should save and retrieve custom quick reply templates', async () => {
       const customReplies = [
         { id: 'custom_1', text: 'พร้อมส่งสินค้าทันทีครับ 📦', createdAt: 12345 },
       ];
 
-      saveDbQuickReplies(customReplies);
-      const fetched = getDbQuickReplies();
+      await saveDbQuickReplies(customReplies);
+      const fetched = await getDbQuickReplies();
       expect(fetched).toHaveLength(1);
       expect(fetched[0].text).toBe('พร้อมส่งสินค้าทันทีครับ 📦');
     });

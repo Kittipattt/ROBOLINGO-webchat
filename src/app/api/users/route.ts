@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
-    const users = getAllUsers();
+    const users = await getAllUsers();
 
     // Auto-enrich any user who has 'LINE User' or missing profile details
     const enrichedUsers = await Promise.all(
@@ -20,7 +20,7 @@ export async function GET() {
           try {
             const profile = await getLineUserProfile(u.userId);
             if (profile?.displayName && profile.displayName !== 'LINE User') {
-              return upsertUser({
+              return await upsertUser({
                 userId: u.userId,
                 displayName: profile.displayName,
                 pictureUrl: profile.pictureUrl,
@@ -68,7 +68,7 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: 'userId is required' }, { status: 400 });
     }
 
-    const deleted = deleteUser(userId);
+    const deleted = await deleteUser(userId);
     return NextResponse.json({ success: true, deleted, userId });
   } catch (error: any) {
     return NextResponse.json({ error: error?.message || 'Failed to delete user' }, { status: 500 });
