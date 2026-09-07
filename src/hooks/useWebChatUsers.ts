@@ -166,6 +166,7 @@ export function useWebChatUsers(options: UseWebChatUsersOptions = {}) {
         if (incoming.length > 0) {
           mergeUsers(incoming);
           onNewUserMessageDetected?.(incoming);
+          setSelectedUser((curr) => curr || incoming[0]);
         }
       } catch (err) {
         console.error('[useWebChatUsers] Failed to fetch users:', err);

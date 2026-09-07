@@ -1,6 +1,15 @@
 import fs from 'fs';
 import path from 'path';
 import { LineUser, ChatMessage, QuickReplyTemplate, DEFAULT_QUICK_REPLIES } from './types';
+import {
+  isSupabaseConfigured,
+  getSupabaseClient,
+  rowToLineUser,
+  lineUserToRow,
+  rowToChatMessage,
+  chatMessageToRow,
+  rowToQuickReply,
+} from './supabase';
 
 interface DatabaseSchema {
   users: Record<string, LineUser>;
@@ -63,7 +72,24 @@ loadDatabase();
 /**
  * Get all users sorted by most recent activity
  */
-export function getAllUsers(): LineUser[] {
+export async function getAllUsers(): Promise<LineUser[]> {
+  if (isSupabaseConfigured()) {
+    try {
+      const client = getSupabaseClient()!;
+      const { data, error } = await client
+        .from('users')
+        .select('*')
+        .order('last_message_at', { ascending: false });
+
+      if (!error && data) {
+        return data.map(rowToLineUser);
+      }
+      console.error('[Supabase] Failed to fetch users, falling back to local:', error?.message);
+    } catch (err) {
+      console.error('[Supabase] Exception fetching users:', err);
+    }
+  }
+
   const db = loadDatabase();
   return Object.values(db.users).sort((a, b) => b.lastMessageAt - a.lastMessageAt);
 }
@@ -71,7 +97,24 @@ export function getAllUsers(): LineUser[] {
 /**
  * Get a specific user by LINE userId
  */
-export function getUserById(userId: string): LineUser | null {
+export async function getUserById(userId: string): Promise<LineUser | null> {
+  if (isSupabaseConfigured()) {
+    try {
+      const client = getSupabaseClient()!;
+      const { data, error } = await client
+        .from('users')
+        .select('*')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      if (!error && data) {
+        return rowToLineUser(data);
+      }
+    } catch (err) {
+      console.error('[Supabase] Exception fetching user by ID:', err);
+    }
+  }
+
   const db = loadDatabase();
   return db.users[userId] || null;
 }
@@ -79,7 +122,7 @@ export function getUserById(userId: string): LineUser | null {
 /**
  * Upsert a LINE user's profile and update timestamp
  */
-export function upsertUser(data: {
+export async function upsertUser(data: {
   userId: string;
   displayName?: string;
   pictureUrl?: string;
@@ -89,9 +132,26 @@ export function upsertUser(data: {
   incrementUnread?: boolean;
   resetUnread?: boolean;
   lastSender?: 'user' | 'agent';
-}): LineUser {
+}): Promise<LineUser> {
   const db = loadDatabase();
-  const existing = db.users[data.userId];
+  let existing = db.users[data.userId];
+
+  // If Supabase is active, try reading existing user to preserve real displayName
+  if (isSupabaseConfigured()) {
+    try {
+      const client = getSupabaseClient()!;
+      const { data: dbRow } = await client
+        .from('users')
+        .select('*')
+        .eq('user_id', data.userId)
+        .maybeSingle();
+      if (dbRow) {
+        existing = rowToLineUser(dbRow);
+      }
+    } catch {
+      // ignore
+    }
+  }
 
   const now = Date.now();
 
@@ -105,7 +165,6 @@ export function upsertUser(data: {
   }
 
   // Monotonic timestamp protection: never allow an older lastMessage to overwrite a newer one
-  // and never allow an empty/whitespace lastMessage to overwrite an existing non-empty lastMessage
   let lastMessage = data.lastMessage && data.lastMessage.trim() ? data.lastMessage : (existing?.lastMessage || '');
   let lastMessageAt = data.lastMessageAt ?? (existing?.lastMessageAt || now);
   if (existing?.lastMessageAt && (data.lastMessageAt || 0) < existing.lastMessageAt) {
@@ -132,6 +191,21 @@ export function upsertUser(data: {
     lastSender: data.lastSender ?? existing?.lastSender,
   };
 
+  // 1. Sync to Supabase if configured
+  if (isSupabaseConfigured()) {
+    try {
+      const client = getSupabaseClient()!;
+      const row = lineUserToRow(updatedUser);
+      const { error } = await client.from('users').upsert(row);
+      if (error) {
+        console.error('[Supabase] Error upserting user:', error.message);
+      }
+    } catch (err) {
+      console.error('[Supabase] Exception upserting user:', err);
+    }
+  }
+
+  // 2. Always persist locally in memory and file
   db.users[data.userId] = updatedUser;
   saveDatabase(db);
   return updatedUser;
@@ -140,7 +214,16 @@ export function upsertUser(data: {
 /**
  * Reset unread count for a user
  */
-export function markUserAsRead(userId: string): void {
+export async function markUserAsRead(userId: string): Promise<void> {
+  if (isSupabaseConfigured()) {
+    try {
+      const client = getSupabaseClient()!;
+      await client.from('users').update({ unread_count: 0 }).eq('user_id', userId);
+    } catch (err) {
+      console.error('[Supabase] Error marking user read:', err);
+    }
+  }
+
   const db = loadDatabase();
   if (db.users[userId]) {
     db.users[userId].unreadCount = 0;
@@ -151,7 +234,24 @@ export function markUserAsRead(userId: string): void {
 /**
  * Retrieve messages for a specific user or all messages
  */
-export function getMessages(userId?: string): ChatMessage[] {
+export async function getMessages(userId?: string): Promise<ChatMessage[]> {
+  if (isSupabaseConfigured()) {
+    try {
+      const client = getSupabaseClient()!;
+      let query = client.from('messages').select('*').order('created_at', { ascending: true });
+      if (userId) {
+        query = query.eq('user_id', userId);
+      }
+      const { data, error } = await query;
+      if (!error && data) {
+        return data.map(rowToChatMessage);
+      }
+      console.error('[Supabase] Failed to fetch messages, falling back to local:', error?.message);
+    } catch (err) {
+      console.error('[Supabase] Exception fetching messages:', err);
+    }
+  }
+
   const db = loadDatabase();
   if (!userId) {
     return db.messages;
@@ -177,7 +277,7 @@ export function getUploadsDir(): string {
 /**
  * Add a new chat message
  */
-export function addMessage(data: {
+export async function addMessage(data: {
   userId: string;
   sender: 'user' | 'agent';
   text: string;
@@ -186,7 +286,7 @@ export function addMessage(data: {
   packageId?: string;
   stickerId?: string;
   messageType?: 'text' | 'image' | 'sticker';
-}): ChatMessage {
+}): Promise<ChatMessage> {
   const db = loadDatabase();
   const now = Date.now();
   const messageType = data.messageType || (data.stickerUrl ? 'sticker' : data.imageUrl ? 'image' : 'text');
@@ -206,10 +306,22 @@ export function addMessage(data: {
     status: 'sent',
   };
 
-  db.messages.push(newMsg);
+  // 1. Sync to Supabase if configured
+  if (isSupabaseConfigured()) {
+    try {
+      const client = getSupabaseClient()!;
+      const row = chatMessageToRow(newMsg);
+      const { error } = await client.from('messages').insert(row);
+      if (error) {
+        console.error('[Supabase] Error adding message:', error.message);
+      }
+    } catch (err) {
+      console.error('[Supabase] Exception adding message:', err);
+    }
+  }
 
-  // Update user's latest message
-  upsertUser({
+  // 2. Update user's latest message
+  await upsertUser({
     userId: data.userId,
     lastMessage: text,
     lastMessageAt: now,
@@ -218,6 +330,8 @@ export function addMessage(data: {
     lastSender: data.sender,
   });
 
+  // 3. Always persist locally
+  db.messages.push(newMsg);
   saveDatabase(db);
   return newMsg;
 }
@@ -225,7 +339,17 @@ export function addMessage(data: {
 /**
  * Clear all messages for a specific user, resetting lastMessage and unreadCount
  */
-export function clearUserMessages(userId: string): boolean {
+export async function clearUserMessages(userId: string): Promise<boolean> {
+  if (isSupabaseConfigured()) {
+    try {
+      const client = getSupabaseClient()!;
+      await client.from('messages').delete().eq('user_id', userId);
+      await client.from('users').update({ last_message: '', unread_count: 0 }).eq('user_id', userId);
+    } catch (err) {
+      console.error('[Supabase] Error clearing messages:', err);
+    }
+  }
+
   const db = loadDatabase();
   db.messages = db.messages.filter((msg) => msg.userId !== userId);
 
@@ -241,7 +365,17 @@ export function clearUserMessages(userId: string): boolean {
 /**
  * Completely delete a user and all their associated messages
  */
-export function deleteUser(userId: string): boolean {
+export async function deleteUser(userId: string): Promise<boolean> {
+  if (isSupabaseConfigured()) {
+    try {
+      const client = getSupabaseClient()!;
+      await client.from('messages').delete().eq('user_id', userId);
+      await client.from('users').delete().eq('user_id', userId);
+    } catch (err) {
+      console.error('[Supabase] Error deleting user:', err);
+    }
+  }
+
   const db = loadDatabase();
   const existed = Boolean(db.users[userId]);
 
@@ -255,7 +389,19 @@ export function deleteUser(userId: string): boolean {
 /**
  * Get quick reply templates from database
  */
-export function getDbQuickReplies(): QuickReplyTemplate[] {
+export async function getDbQuickReplies(): Promise<QuickReplyTemplate[]> {
+  if (isSupabaseConfigured()) {
+    try {
+      const client = getSupabaseClient()!;
+      const { data, error } = await client.from('quick_replies').select('*').order('created_at', { ascending: true });
+      if (!error && data && data.length > 0) {
+        return data.map(rowToQuickReply);
+      }
+    } catch (err) {
+      console.error('[Supabase] Error fetching quick replies:', err);
+    }
+  }
+
   const db = loadDatabase();
   return db.quickReplies && db.quickReplies.length > 0
     ? db.quickReplies
@@ -265,7 +411,23 @@ export function getDbQuickReplies(): QuickReplyTemplate[] {
 /**
  * Save quick reply templates to database
  */
-export function saveDbQuickReplies(templates: QuickReplyTemplate[]): QuickReplyTemplate[] {
+export async function saveDbQuickReplies(templates: QuickReplyTemplate[]): Promise<QuickReplyTemplate[]> {
+  if (isSupabaseConfigured()) {
+    try {
+      const client = getSupabaseClient()!;
+      await client.from('quick_replies').delete().neq('id', 'placeholder_nonexistent');
+      const rows = templates.map((t, idx) => ({
+        id: t.id,
+        text: t.text,
+        category: t.category || 'general',
+        created_at: idx + 1,
+      }));
+      await client.from('quick_replies').insert(rows);
+    } catch (err) {
+      console.error('[Supabase] Error saving quick replies:', err);
+    }
+  }
+
   const db = loadDatabase();
   db.quickReplies = templates;
   saveDatabase(db);

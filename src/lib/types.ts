@@ -50,6 +50,7 @@ export interface LineWebhookPayload {
 export interface QuickReplyTemplate {
   id: string;
   text: string;
+  category?: string;
   createdAt: number;
 }
 

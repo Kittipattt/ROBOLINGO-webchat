@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
-    const quickReplies = getDbQuickReplies();
+    const quickReplies = await getDbQuickReplies();
     return NextResponse.json(
       { quickReplies },
       {
@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
         createdAt: item.createdAt || Date.now(),
       }));
 
-    const saved = saveDbQuickReplies(validated);
+    const saved = await saveDbQuickReplies(validated);
     return NextResponse.json({ success: true, quickReplies: saved });
   } catch (error: any) {
     return NextResponse.json(

@@ -3,6 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { verifyLineSignature, getLineUserProfile, getLineMessageContent, getLineStickerUrl } from '@/lib/line';
 import { addMessage, upsertUser, getUploadsDir } from '@/lib/db';
+import { isSupabaseConfigured, uploadImageToSupabase } from '@/lib/supabase';
 import { LineWebhookPayload } from '@/lib/types';
 
 export const dynamic = 'force-dynamic';
@@ -62,9 +63,17 @@ export async function POST(req: NextRequest) {
             const imageBuffer = await getLineMessageContent(msg.id);
             if (imageBuffer) {
               const filename = `img_line_${msg.id}.jpg`;
-              const uploadsDir = getUploadsDir();
-              fs.writeFileSync(path.join(uploadsDir, filename), imageBuffer);
-              imageUrl = `/api/images/${filename}`;
+              if (isSupabaseConfigured()) {
+                const publicUrl = await uploadImageToSupabase(imageBuffer, filename, 'image/jpeg');
+                if (publicUrl) {
+                  imageUrl = publicUrl;
+                }
+              }
+              if (!imageUrl) {
+                const uploadsDir = getUploadsDir();
+                fs.writeFileSync(path.join(uploadsDir, filename), imageBuffer);
+                imageUrl = `/api/images/${filename}`;
+              }
             }
           } catch (err) {
             console.error(`[Webhook] Error saving image content for message ${msg.id}:`, err);
@@ -85,7 +94,7 @@ export async function POST(req: NextRequest) {
         const profile = await getLineUserProfile(userId);
 
         // Update/create user in DB
-        upsertUser({
+        await upsertUser({
           userId,
           displayName: profile?.displayName,
           pictureUrl: profile?.pictureUrl,
@@ -96,7 +105,7 @@ export async function POST(req: NextRequest) {
         });
 
         // Add message to DB
-        addMessage({
+        await addMessage({
           userId,
           sender: 'user',
           text,
@@ -113,7 +122,7 @@ export async function POST(req: NextRequest) {
       // 3. Handle Follow Event (User adds OA as friend or unblocks)
       if (event.type === 'follow') {
         const profile = await getLineUserProfile(userId);
-        upsertUser({
+        await upsertUser({
           userId,
           displayName: profile?.displayName,
           pictureUrl: profile?.pictureUrl,

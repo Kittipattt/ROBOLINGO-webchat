@@ -5,7 +5,7 @@ export async function POST(req: NextRequest) {
   try {
     const { userId } = await req.json();
     if (userId) {
-      markUserAsRead(userId);
+      await markUserAsRead(userId);
     }
     return NextResponse.json({ success: true });
   } catch (error: any) {

@@ -9,7 +9,7 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const userId = searchParams.get('userId') || undefined;
 
-    const messages = getMessages(userId);
+    const messages = await getMessages(userId);
     return NextResponse.json(
       { messages },
       {
@@ -92,7 +92,7 @@ export async function POST(req: NextRequest) {
 
     // 2. Save outbound message in DB
     const resolvedStickerUrl = isSticker ? (stickerUrl || (stickerId ? getLineStickerUrl(stickerId) : undefined)) : undefined;
-    const message = addMessage({
+    const message = await addMessage({
       userId,
       sender: 'agent',
       text: messageContent || (isSticker ? '🏷️ [สติกเกอร์]' : isImage ? '📷 [รูปภาพ]' : ''),
@@ -104,7 +104,7 @@ export async function POST(req: NextRequest) {
     });
 
     // 3. Ensure profile is enriched if previously unknown or generic
-    const existingUser = getUserById(userId);
+    const existingUser = await getUserById(userId);
     if (
       (!existingUser || existingUser.displayName === 'LINE User' || !existingUser.pictureUrl) &&
       userId.startsWith('U') &&
@@ -113,7 +113,7 @@ export async function POST(req: NextRequest) {
       try {
         const profile = await getLineUserProfile(userId);
         if (profile?.displayName && profile.displayName !== 'LINE User') {
-          upsertUser({
+          await upsertUser({
             userId,
             displayName: profile.displayName,
             pictureUrl: profile.pictureUrl,
@@ -150,7 +150,7 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: 'userId is required' }, { status: 400 });
     }
 
-    const success = clearUserMessages(userId);
+    const success = await clearUserMessages(userId);
     return NextResponse.json({ success, userId });
   } catch (error: any) {
     console.error('[Messages API] DELETE error:', error);
