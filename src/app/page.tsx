@@ -82,6 +82,7 @@ export default function WebChatPage() {
   const [inputText, setInputText] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<'all' | 'unread' | 'replied'>('all');
+  const [mobileView, setMobileView] = useState<'list' | 'chat'>('list');
   const [showQrModal, setShowQrModal] = useState(false);
   const [showDetailDrawer, setShowDetailDrawer] = useState(true);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
@@ -96,6 +97,12 @@ export default function WebChatPage() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [activeMessages]);
+
+  // Handle selecting a user from sidebar
+  const handleSelectUser = (user: Parameters<typeof selectUser>[0]) => {
+    selectUser(user);
+    setMobileView('chat');
+  };
 
   // Handle message sending
   const handleSendMessage = async (textToSend?: string) => {
@@ -125,6 +132,7 @@ export default function WebChatPage() {
   const handleDeleteConversation = async (userId: string) => {
     removeUserMessagesLocally(userId);
     await deleteUserConversation(userId);
+    setMobileView('list');
   };
 
   return (
@@ -139,11 +147,11 @@ export default function WebChatPage() {
         onOpenQrModal={() => setShowQrModal(true)}
       />
 
-      <div className="workspace-grid">
+      <div className="workspace-grid" data-mobile-view={mobileView}>
         <Sidebar
           users={users}
           selectedUser={selectedUser}
-          onSelectUser={selectUser}
+          onSelectUser={handleSelectUser}
           activeTab={activeTab}
           onTabChange={setActiveTab}
           searchQuery={searchQuery}
@@ -173,6 +181,7 @@ export default function WebChatPage() {
           onOpenDeleteModal={() => setShowDeleteModal(true)}
           quickReplies={quickReplies}
           onOpenQuickRepliesModal={() => setShowQuickRepliesModal(true)}
+          onBackToList={() => setMobileView('list')}
         />
 
         {selectedUser && showDetailDrawer && (

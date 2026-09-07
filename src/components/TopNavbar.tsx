@@ -35,6 +35,7 @@ export function TopNavbar({
             <span className="brand-badge">Live Chat Console</span>
           </div>
           <div
+            className="brand-subtitle-row"
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -64,7 +65,7 @@ export function TopNavbar({
       </div>
 
       {/* Global Actions */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+      <div className="top-navbar-actions" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         {/* QR Code / Add LINE button */}
         <button
           className="shimmer-green-btn"
@@ -72,7 +73,7 @@ export function TopNavbar({
           title="สแกน QR Code เพื่อเชื่อมต่อ LINE OA"
         >
           <QrCode size={16} />
-          <span>QR Code บัญชี LINE</span>
+          <span className="navbar-btn-text">QR Code บัญชี LINE</span>
         </button>
 
         {/* Sound Toggle */}
