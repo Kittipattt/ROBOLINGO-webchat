@@ -40,17 +40,22 @@ function deduplicateMessages(messages: ChatMessage[]): ChatMessage[] {
           !other.id.startsWith('temp_') &&
           !other.id.includes('_sync') &&
           !other.id.includes('_sel') &&
-          other.sender === item.sender &&
-          ((item.messageType === 'sticker' &&
-            other.messageType === 'sticker' &&
-            item.stickerId === other.stickerId) ||
-            (item.messageType === 'image' && other.messageType === 'image') ||
-            other.text === item.text) &&
+          (
+            // Matching sender and content
+            (other.sender === item.sender &&
+              ((item.messageType === 'sticker' &&
+                other.messageType === 'sticker' &&
+                item.stickerId === other.stickerId) ||
+                (item.messageType === 'image' && other.messageType === 'image') ||
+                other.text === item.text)) ||
+            // Or exact text match within 20s (prevents synthetic message from overriding real agent message)
+            (item.text && other.text === item.text)
+          ) &&
           Math.abs(other.createdAt - item.createdAt) < 20000
       );
 
       if (hasOfficial) {
-        // Official server message is already present, drop this temporary duplicate!
+        // Official server message is already present, drop this temporary/synthetic duplicate!
         continue;
       }
     }
@@ -72,6 +77,7 @@ export function useChatMessages(options: UseChatMessagesOptions = {}) {
 
   const [messagesByUserId, setMessagesByUserId] = useState<Record<string, ChatMessage[]>>({});
   const [isSending, setIsSending] = useState(false);
+  const isSendingRef = useRef(false);
 
   const selectedUserIdRef = useRef<string | undefined>(selectedUserId);
   const lastMessageCountRef = useRef<number>(0);
@@ -150,14 +156,16 @@ export function useChatMessages(options: UseChatMessagesOptions = {}) {
 
   // Sync synthetic message directly from user profile updates (e.g. from sidebar poll)
   const syncIncomingUserMessage = useCallback(
-    (userId: string, text: string, timestamp: number) => {
+    (userId: string, text: string, timestamp: number, sender: 'user' | 'agent' = 'user') => {
       if (!userId || !text || !timestamp) return;
+      // Never synthesize an agent message as a customer message
+      if (sender === 'agent') return;
 
       setMessagesByUserId((prevMap) => {
         const list = prevMap[userId] || [];
         const exists = list.some(
           (m) =>
-            (m.text === text && Math.abs(m.createdAt - timestamp) < 5000) ||
+            (m.text === text && Math.abs(m.createdAt - timestamp) < 15000) ||
             m.createdAt === timestamp
         );
         if (!exists) {
@@ -217,8 +225,9 @@ export function useChatMessages(options: UseChatMessagesOptions = {}) {
     async (text: string): Promise<boolean> => {
       const trimmed = text.trim();
       const targetUserId = selectedUserIdRef.current;
-      if (!trimmed || !targetUserId || isSending) return false;
+      if (!trimmed || !targetUserId || isSendingRef.current || isSending) return false;
 
+      isSendingRef.current = true;
       setIsSending(true);
       const tempId = `temp_${Date.now()}`;
       const now = Date.now();
@@ -280,6 +289,7 @@ export function useChatMessages(options: UseChatMessagesOptions = {}) {
         alert(`เกิดข้อผิดพลาดในการส่งข้อความ: ${err?.message || 'Server error'}`);
         return false;
       } finally {
+        isSendingRef.current = false;
         setIsSending(false);
       }
     },
@@ -290,8 +300,9 @@ export function useChatMessages(options: UseChatMessagesOptions = {}) {
   const sendImageMessage = useCallback(
     async (file: File, caption?: string): Promise<boolean> => {
       const targetUserId = selectedUserIdRef.current;
-      if (!file || !targetUserId || isSending) return false;
+      if (!file || !targetUserId || isSendingRef.current || isSending) return false;
 
+      isSendingRef.current = true;
       setIsSending(true);
       const tempId = `temp_img_${Date.now()}`;
       const now = Date.now();
@@ -370,6 +381,7 @@ export function useChatMessages(options: UseChatMessagesOptions = {}) {
         alert(`เกิดข้อผิดพลาดในการส่งรูปภาพ: ${err?.message || 'Server error'}`);
         return false;
       } finally {
+        isSendingRef.current = false;
         setIsSending(false);
       }
     },
@@ -380,8 +392,9 @@ export function useChatMessages(options: UseChatMessagesOptions = {}) {
   const sendStickerMessage = useCallback(
     async (packageId: string, stickerId: string): Promise<boolean> => {
       const targetUserId = selectedUserIdRef.current;
-      if (!packageId || !stickerId || !targetUserId || isSending) return false;
+      if (!packageId || !stickerId || !targetUserId || isSendingRef.current || isSending) return false;
 
+      isSendingRef.current = true;
       setIsSending(true);
       const tempId = `temp_stk_${Date.now()}`;
       const now = Date.now();
@@ -455,6 +468,7 @@ export function useChatMessages(options: UseChatMessagesOptions = {}) {
         alert(`เกิดข้อผิดพลาดในการส่งสติกเกอร์: ${err?.message || 'Server error'}`);
         return false;
       } finally {
+        isSendingRef.current = false;
         setIsSending(false);
       }
     },

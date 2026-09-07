@@ -50,21 +50,24 @@ export default function WebChatPage() {
     sendStickerMessage,
     clearUserMessages,
     removeUserMessagesLocally,
-    syncIncomingUserMessage,
+    fetchMessagesForUser,
   } = useChatMessages({
     selectedUserId,
     onNewMessageSound: playNotificationSound,
     onMessageSyncedToUser: updateUserLastMessage,
   });
 
-  // Automatically sync incoming message from users poll into chat history
+  // Automatically refresh active chat messages when users poll detects new customer activity
   useEffect(() => {
-    users.forEach((u) => {
-      if (u.lastMessage && u.lastMessageAt) {
-        syncIncomingUserMessage(u.userId, u.lastMessage, u.lastMessageAt);
+    if (!selectedUserId) return;
+    const currentSelected = users.find((u) => u.userId === selectedUserId);
+    if (currentSelected && currentSelected.lastMessageAt && currentSelected.lastSender === 'user') {
+      const latestActiveMsg = activeMessages[activeMessages.length - 1];
+      if (!latestActiveMsg || currentSelected.lastMessageAt > latestActiveMsg.createdAt) {
+        fetchMessagesForUser(selectedUserId, true);
       }
-    });
-  }, [users, syncIncomingUserMessage]);
+    }
+  }, [users, selectedUserId, activeMessages, fetchMessagesForUser]);
 
   // 4. Quick Replies Domain Hook
   const {
