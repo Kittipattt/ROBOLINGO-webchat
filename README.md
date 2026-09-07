@@ -1,111 +1,59 @@
-# 💬 ROBO LINGO WebChat - LINE Official Account Live Chat System
+# 💬 ROBO LINGO WebChat
 
-<div align="center">
-
-![Next.js](https://img.shields.io/badge/Next.js-15.5-black?style=for-the-badge&logo=next.js)
-![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue?style=for-the-badge&logo=typescript)
-![LINE Messaging API](https://img.shields.io/badge/LINE-Messaging%20API-00C300?style=for-the-badge&logo=line)
-![Vitest](https://img.shields.io/badge/Vitest-70%20Passing-green?style=for-the-badge&logo=vitest)
-![License](https://img.shields.io/badge/License-MIT-purple?style=for-the-badge)
-
-**ระบบไลฟ์แชทสองทาง (Two-Way Live Chat Helpdesk) เชื่อมต่อ LINE Official Account (LINE OA) แบบ Real-time**  
-พัฒนาด้วย **Next.js 15 (App Router)**, **TypeScript**, **LINE Messaging API** และ **Clean Architecture**
-
-[🚀 ทดลองแอดไลน์ OA](#-ข้อมูลสำหรับการทดสอบ-submission-deliverables) • [✨ ฟีเจอร์เด่น](#-ฟีเจอร์เด่น-key-features) • [🏛️ สถาปัตยกรรมระบบ](#️-สถาปัตยกรรมระบบ-system-architecture) • [🧪 การทดสอบ](#-การทดสอบและความเสถียร-testing--quality) • [📦 การติดตั้ง](#-วิธีการติดตั้งและรันในเครื่อง-local-setup)
-
-</div>
+เว็บแชทสำหรับแอดมิน ใช้คุยตอบรับ-ส่งข้อความกับลูกค้าที่ทักเข้ามาทาง **LINE Official Account (LINE OA)** แบบเรียลไทม์ ช่วยให้ทีมแอดมินตอบแชท ส่งรูป เช็คสลิป และจัดการลูกค้าได้สะดวกผ่านหน้าจอคอมพิวเตอร์หรือแท็บเล็ต
 
 ---
 
-## 📌 บทนำและภาพรวมโครงการ (Project Overview)
+## 📌 โปรเจกต์นี้ทำอะไรได้บ้าง (ภาพรวมการทำงาน)
 
-**ROBO LINGO WebChat** คือระบบบริหารจัดการข้อความลูกค้าและศูนย์บริการลูกค้า (Customer Support Helpdesk) ที่เชื่อมต่อโดยตรงกับ **LINE Official Account (LINE OA)** ผ่าน **LINE Messaging API** 
-
-ระบบถูกออกแบบมาเพื่อแก้ปัญหาของทีมแอดมินที่ต้องตอบลูกค้าจำนวนมาก โดยมอบประสบการณ์การทำงานที่ **รวดเร็ว ไหลลื่น ไม่มีหน่วง (Zero-Latency UX)** ด้วยเทคโนโลยี **Offline-First Caching**, ดีไซน์ **Emerald Glassmorphism** ระดับพรีเมียม, ระบบเทมเพลตคำตอบด่วนที่ปรับแต่งได้อิสระ และการรับ-ส่งรูปภาพสมบูรณ์แบบทั้งสองทาง
-
----
-
-## ✨ ฟีเจอร์เด่น (Key Features)
-
-### 1. ⚡ การรับ-ส่งข้อความสองทางแบบเรียลไทม์ (Two-Way Live Messaging)
-- **Webhook Integration**: รับข้อความและอีเวนต์จาก LINE Platform ทันทีที่ลูกค้าส่ง (รองรับ Text, Sticker และ Image)
-- **Push Message API**: แอดมินสามารถพิมพ์ตอบกลับจากหน้าเว็บ ข้อความจะถูกส่งตรงเข้าแอป LINE ของลูกค้าในทันที
-- **Sound Alert & Notification**: เสียงแจ้งเตือนนุ่มนวลเมื่อมีข้อความใหม่เข้ามา
-
-### 2. 🖼️ รองรับการรับ-ส่งรูปภาพ & กล่องดูภาพขยาย (Image Messages & Lightbox Viewer)
-- **รับรูปภาพจาก LINE (Incoming Images)**: เมื่อลูกค้าส่งรูปภาพ (เช่น สลิปโอนเงิน, รูปสินค้า) ระบบจะดาวน์โหลดไฟล์ผ่าน **LINE Content API** และจัดเก็บไว้อย่างปลอดภัย พร้อมแสดงผลรูปภาพในห้องแชททันที
-- **แอดมินแนบรูปภาพส่งหาลูกค้า (Outgoing Push Image)**: แอดมินกดปุ่มคลิปหนีบกระดาษ 📎 เพื่อเลือกไฟล์รูปภาพ (JPEG, PNG, GIF, WebP สูงสุด 10MB) มีแถบดูภาพตัวอย่าง (Preview Bar) ขนาดไฟล์ และปุ่มยกเลิก สามารถพิมพ์ข้อความกำกับ (Caption) แล้วกดส่งเข้า LINE ลูกค้าได้โดยตรง
-- **Lightbox Viewer ขยายดูภาพขนาดเต็ม**: คลิกที่รูปภาพในห้องแชทเพื่อเปิดดูรูปขนาดใหญ่แบบ Full-Screen ปรับความคมชัด พร้อมปุ่ม **Zoom In/Out**, ปุ่ม **Download** บันทึกรูปลงเครื่อง และปุ่มปิด
-
-### 3. 🌓 สลับธีมสว่าง / มืด แบบ Quick Switch (Dark & Light Theme Mode)
-- ปุ่ม Toggle ☀️ / 🌙 บน Header คลิกเดียวเปลี่ยนโทนสีทั้งระบบทันที
-- ระบบ **Theme Persistence** บันทึกค่าที่เลือกลงใน `localStorage` โหลดธีมเดิมอัตโนมัติเมื่อเปิดใช้งานใหม่
-- โหมด Light สบายตา คมชัด อ่านง่าย และโหมด Dark สไตล์ Emerald Glassmorphism ระดับพรีเมียม
-
-### 4. 🛡️ ความปลอดภัยมาตรฐานระดับ Enterprise (Security & Signature Verification)
-- ตรวจสอบความถูกต้องของ Webhook ทุก Request ด้วย **HMAC-SHA256 Signature Verification** (`x-line-signature`) เพื่อป้องกัน Request ปลอมแปลง
-- ป้องกัน Timing Attack ด้วย `crypto.timingSafeEqual`
-- ป้องกัน Path Traversal Attack ในการดาวน์โหลดและให้บริการไฟล์รูปภาพ
-
-### 5. 👥 การจัดการลูกค้าอัจฉริยะ (Intelligent Customer Management)
-- **Auto-Enrich Profile**: ดึงชื่อแสดงผล (Display Name), รูปโปรไฟล์ (Avatar) และสถานะจาก LINE Profile API โดยอัตโนมัติ
-- **Unread Badges & Monotonic Order**: มีตัวนับข้อความที่ยังไม่ได้อ่าน พร้อมระบบเรียงลำดับแชทตามเวลาล่าสุด โดยป้องกันปัญหาข้อมูลเก่าทับข้อมูลใหม่อย่างแม่นยำ
-- **Search & Filter**: ค้นหาลูกค้าตามชื่อหรือข้อความล่าสุดได้ทันที
-
-### 6. ⚡ จัดการเทมเพลตคำตอบด่วนได้เอง (Customizable Quick Replies)
-- **คลิกเดียวส่งทันที**: มีชิปคำตอบด่วนด้านบนกล่องข้อความ คลิกส่งหาลูกค้าได้ในเสี้ยววินาที
-- **Modal จัดการเทมเพลต**: แอดมินสามารถ **เพิ่มข้อความใหม่ (Add)**, **แก้ไขแบบ Inline (Edit)** และ **ลบ (Delete)** ข้อความที่ใช้บ่อยได้เอง
-- **Reset to Defaults**: ปุ่มกู้คืน 4 ข้อความมาตรฐานของระบบได้ตลอดเวลา
-- **ระบบจัดเก็บ 2 ชั้น (Offline-First)**: โหลดเร็วทันทีผ่าน Local Storage และ Sync กับเซิร์ฟเวอร์แบบ Background
-
-### 7. 🗑️ จัดการบทสนทนาอย่างปลอดภัย (Safe Conversation Management)
-- **ลบห้องแชท (Delete Chat)**: ลบผู้ใช้ออกจากระบบพร้อมข้อความทั้งหมด
-- **ล้างประวัติข้อความ (Clear History)**: ล้างข้อความเก่าโดยยังคงเก็บโปรไฟล์ลูกค้าไว้
-- มี Modal แจ้งเตือนยืนยันก่อนลบ ป้องกันการกดผิดพลาดโดยไม่ตั้งใจ
+โปรเจกต์นี้สร้างขึ้นมาเป็นระบบ Helpdesk สองทาง (Two-Way Messaging):
+- **เมื่อลูกค้าทัก LINE เข้ามา**: ข้อความ, รูปภาพ หรือสติกเกอร์ จะวิ่งผ่าน Webhook มาแสดงบนหน้าเว็บแชททันที พร้อมเสียงเตือน
+- **เมื่อแอดมินตอบกลับจากหน้าเว็บ**: ข้อความจะถูกส่งตรงเข้าแอป LINE บนมือถือของลูกค้าทันทีผ่าน LINE Messaging API
+- **ข้อมูลตรงกันทุกเครื่อง**: ใช้ **Supabase (PostgreSQL + Cloud Storage)** เป็นฐานข้อมูลกลาง ทำให้เปิดเว็บจากคอมกี่เครื่อง หรือเปิดจากมือถือ ข้อมูลและประวัติการคุยก็ตรงกัน ไม่หายเมื่อเซิร์ฟเวอร์รีสตาร์ท
 
 ---
 
-## 🏛️ สถาปัตยกรรมระบบ (System Architecture)
+## 🏗️ สถาปัตยกรรมระบบ (Architecture)
 
-ระบบแบ่งแยกหน้าที่การทำงานอย่างชัดเจนตามหลัก **Clean Architecture** และ **Separation of Concerns**:
+โปรเจกต์นี้เขียนด้วย **Next.js 15 (App Router)** และ **TypeScript** โดยแบ่งโค้ดเป็นสัดส่วนชัดเจน (Clean Architecture) เพื่อให้ดูแลและแก้ง่าย:
 
 ```
 src/
-├── app/                      # Presentation & Route Handlers Layer
-│   ├── api/
-│   │   ├── line/webhook/     # LINE Webhook (HMAC-SHA256, Text/Sticker/Image)
-│   │   ├── messages/         # GET, POST (Text & Image Push), DELETE
-│   │   ├── users/            # GET (Profile enrichment), DELETE (Delete user)
-│   │   ├── users/read/       # POST (Mark conversation as read)
-│   │   ├── quick-replies/    # GET, POST (Manage quick reply templates)
-│   │   ├── upload/           # POST (Secure image upload handler, max 10MB)
-│   │   └── images/[filename] # GET (Safe binary image streaming & caching)
-│   ├── layout.tsx            # Root Layout & Metadata
-│   └── page.tsx              # Main Helpdesk Container
-├── components/               # Pure UI Components Layer
-│   ├── ChatSidebar.tsx       # รายการผู้ใช้, ค้นหา, Unread Count
-│   ├── ChatCanvas.tsx        # กล่องสนทนา, แนบรูปภาพ 📎, Lightbox, Quick Replies
-│   ├── CustomerDrawer.tsx    # ข้อมูลลูกค้า, สถิติ, ปุ่มล้าง/ลบแชท
-│   ├── QuickRepliesModal.tsx # หน้าต่างเพิ่ม/แก้ไข/ลบเทมเพลตคำตอบด่วน
-│   ├── DeleteModal.tsx       # กล่องยืนยันการลบแชท
-│   └── LineQrModal.tsx       # QR Code เพิ่มเพื่อน LINE OA
-├── hooks/                    # Custom Hooks & State Logic Layer
-│   ├── useWebChat.ts         # Hook รวมสำหรับ Dashboard State
-│   ├── useChatMessages.ts    # Logic ข้อความ, ส่งรูปภาพ, Optimistic Updates
-│   ├── useChatUsers.ts       # Logic ลูกค้า, Unread Counts, เรียงลำดับ
-│   └── useQuickReplies.ts    # Logic จัดการและ Sync เทมเพลตคำตอบด่วน
-├── services/                 # Frontend API Abstraction Layer
-│   ├── chatService.ts        # เรียก API ข้อความ และ อัปโหลดรูปภาพ
-│   ├── userService.ts        # เรียก API ผู้ใช้
-│   └── quickReplyService.ts  # เรียก API Quick Replies
-└── lib/                      # Core Utilities & Persistence Layer
-    ├── types.ts              # TypeScript Interfaces (รวม ChatMessage, ImageUrl)
-    ├── db.ts                 # Database Engine, JSON Persistence & Uploads Dir
-    ├── storage.ts            # Client-Side Caching & LocalStorage
-    └── line.ts               # LINE SDK Utilities (Signature, Profile, Push, Image Content)
+├── app/                  # ฝั่ง Backend & หน้าเว็บหลัก
+│   ├── page.tsx          # หน้าจอแชทหลัก รวมทุกคอมโพเนนต์เข้าด้วยกัน
+│   └── api/              # API Route Handlers (Backend endpoints)
+│       ├── line/webhook/ # รับข้อความ/รูป/สติกเกอร์ที่ลูกค้าส่งมาจาก LINE
+│       ├── messages/     # ดึงประวัติแชท และส่งข้อความตอบกลับหาลูกค้า (Push API)
+│       ├── users/        # ดึงรายชื่อลูกค้า และลบลูกค้า
+│       ├── quick-replies/# ดึงและบันทึกข้อความตอบด่วน
+│       └── upload/       # รับอัปโหลดรูปภาพจากแอดมินขึ้น Supabase Storage
+│
+├── components/           # ชิ้นส่วนหน้าจอ UI (แยกเป็นชิ้นๆ ไม่ปนกับ Logic)
+│   ├── TopNavbar.tsx     # แถบเมนูด้านบน (ปุ่มเปิดเสียง, สลับธีมขาว/ดำ, ปุ่ม QR Code)
+│   ├── Sidebar.tsx       # แถบซ้าย: รายชื่อลูกค้า, ค้นหา, ตัวกรองแชทที่ยังไม่อ่าน
+│   ├── ChatCanvas.tsx    # แถบกลาง: กล่องสนทนา, ปุ่มส่งรูป, ปุ่มสติกเกอร์, ชิปคำตอบด่วน
+│   ├── CustomerDrawer.tsx# แถบขวา: ข้อมูลลูกค้า สถิติ และปุ่มล้างแชท/ลบห้อง
+│   └── QuickRepliesModal.tsx # หน้าต่างเพิ่ม/แก้ไข/ลบ ข้อความตอบด่วน
+│
+├── hooks/                # ตัวจัดการ State และตรรกะการทำงาน (Logic Layer)
+│   ├── useChatMessages.ts# จัดการการดึงข้อความ, การกดส่ง, และการตัดข้อความซ้ำ
+│   ├── useWebChatUsers.ts# จัดการรายชื่อลูกค้า, ตัวนับข้อความที่ยังไม่อ่าน, และการเลือกห้องแชท
+│   └── useQuickReplies.ts# จัดการรายการคำตอบด่วน
+│
+├── services/             # ตัวกลางสำหรับยิงเรียก API ฝั่ง Frontend
+│   ├── chatService.ts    # ฟังก์ชันเรียก API ข้อความ และอัปโหลดรูป
+│   └── userService.ts    # ฟังก์ชันเรียก API ข้อมูลลูกค้า
+│
+└── lib/                  # ฟังก์ชันระบบและฐานข้อมูล (Core & Data Layer)
+    ├── supabase.ts       # ตัวเชื่อมต่อ Supabase Client และฟังก์ชันอัปโหลดรูปขึ้น Cloud
+    ├── db.ts             # ตัวอ่าน/เขียน Database (สลับ Cloud กับ Local อัตโนมัติ)
+    ├── line.ts           # ฟังก์ชันคุยกับ LINE (เช็ค Signature, ดึงโปรไฟล์, ส่งข้อความ)
+    └── types.ts          # โครงสร้างข้อมูลทั้งหมด (Data Types & Interfaces)
 ```
 
-### 🔄 Data Flow Sequence Diagram
+---
+
+## 🔄 ข้อมูลวิ่งอย่างไร (Data Flow & Sequence Diagram)
 
 ```mermaid
 sequenceDiagram
@@ -113,130 +61,163 @@ sequenceDiagram
     actor Customer as 👤 ลูกค้า (LINE App)
     participant LineAPI as 🟢 LINE Platform
     participant Webhook as ⚡ Webhook Handler (/api/line/webhook)
-    participant CoreDB as 💾 Database & Cache (db.ts)
-    participant WebApp as 🖥️ WebChat Dashboard
+    participant Supabase as ☁️ Supabase (PostgreSQL & Storage)
+    participant WebChat as 🖥️ WebChat Console
     actor Admin as 👨‍💼 แอดมิน (Agent)
 
-    Note over Customer, LineAPI: ฝั่งลูกค้ารับ-ส่งข้อความ
-    Customer->>LineAPI: ส่งข้อความหรือสติกเกอร์
-    LineAPI->>Webhook: ส่ง Event พร้อม x-line-signature (POST)
+    %% กรณีที่ 1: ลูกค้าส่งข้อความเข้ามา
+    rect rgb(240, 253, 244)
+    Note over Customer, WebChat: 📥 กรณีที่ 1: ลูกค้าทักแชท / ส่งรูป / ส่งสติกเกอร์
+    Customer->>LineAPI: ส่งข้อความ, รูปภาพ หรือสติกเกอร์
+    LineAPI->>Webhook: ส่ง Event (POST พร้อม x-line-signature)
     Webhook->>Webhook: ตรวจสอบ HMAC-SHA256 Signature
-    Webhook->>LineAPI: ขอข้อมูล Profile (ชื่อ, รูป Avatar)
-    Webhook->>CoreDB: บันทึกข้อความและอัปเดตสถานะผู้ใช้
-    CoreDB-->>WebApp: Polling/Sync ดึงข้อความใหม่ขึ้นหน้าจอ
-    WebApp-->>Admin: เสียงแจ้งเตือน + ข้อความเด้งขึ้นหน้าแชท
+    opt หากเป็นรูปภาพ
+        Webhook->>LineAPI: ดาวน์โหลดไฟล์ภาพผ่าน LINE Content API
+        Webhook->>Supabase: อัปโหลดรูปขึ้น Cloud Storage (chat-attachments)
+    end
+    Webhook->>Supabase: บันทึกข้อความ & อัปเดตโปรไฟล์ลูกค้าลง Database
+    WebChat->>Supabase: ดึงข้อมูลข้อความล่าสุดมาแสดง
+    WebChat-->>Admin: ข้อความเด้งขึ้นหน้าจอแชททันที พร้อมเสียงแจ้งเตือน 🔔
+    end
 
-    Note over Admin, Customer: ฝั่งแอดมินตอบกลับ
-    Admin->>WebApp: คลิกเลือก Quick Reply หรือพิมพ์ข้อความ
-    WebApp->>CoreDB: ส่ง POST /api/messages
-    CoreDB->>LineAPI: ส่ง Push Message API ไปยัง LINE
-    LineAPI->>Customer: ลูกค้าได้รับข้อความตอบกลับในโทรศัพท์ทันที!
+    %% กรณีที่ 2: แอดมินตอบกลับหาลูกค้า
+    rect rgb(239, 246, 255)
+    Note over Admin, Customer: 📤 กรณีที่ 2: แอดมินตอบกลับ / แนบรูปภาพ / ส่งสติกเกอร์
+    Admin->>WebChat: พิมพ์ข้อความ / เลือกคำตอบด่วน / แนบรูป
+    opt หากแนบรูปภาพ
+        WebChat->>Supabase: อัปโหลดรูปผ่าน /api/upload ขึ้น Cloud Storage
+    end
+    WebChat->>WebChat: แสดงข้อความบนจอทันที (Optimistic Update)
+    WebChat->>Webhook: ส่งข้อความไปที่ /api/messages
+    Webhook->>LineAPI: ยิงคำสั่ง LINE Push Message API
+    Webhook->>Supabase: บันทึกข้อความฝั่งแอดมินลง Database
+    LineAPI->>Customer: ข้อความเด้งเข้าแอป LINE ของลูกค้าในทันที 📲
+    end
+```
+
+### สรุปขั้นตอนการทำงาน:
+1. **ฝั่งลูกค้ารับ-ส่งข้อความ**:
+   - ลูกค้าพิมพ์ข้อความในแอป LINE ➡️ LINE Platform ยิง Webhook มาที่ `/api/line/webhook`
+   - ระบบตรวจเช็คความถูกต้องของ Signature (`x-line-signature`) เพื่อความปลอดภัย
+   - ระบบดึงชื่อและรูปโปรไฟล์ลูกค้าจาก LINE แล้วบันทึกข้อความลง Supabase
+   - หน้าเว็บแอดมินดึงข้อความล่าสุดมาแสดงในห้องแชท พร้อมเสียงเตือน
+2. **ฝั่งแอดมินตอบกลับ**:
+   - แอดมินพิมพ์ข้อความ แนบรูป หรือกดคำตอบด่วน ➡️ หน้าเว็บส่งไปที่ `/api/messages`
+   - ระบบสั่ง LINE Messaging API ให้ Push ข้อความเข้ามือถือลูกค้าทันที
+   - บันทึกข้อความของแอดมินลง Supabase เพื่อเก็บเป็นประวัติ
+
+---
+
+## 🏛️ แผนผังโครงสร้างระบบ (System Architecture Diagram)
+
+```mermaid
+graph LR
+    subgraph Users ["👥 ผู้ใช้งาน"]
+        Customer["👤 ลูกค้า<br/>(LINE App บนมือถือ)"]
+        Admin["👨‍💼 แอดมิน<br/>(Web Browser)"]
+    end
+
+    subgraph External ["🌐 บริการภายนอก"]
+        LineGateway["🟢 LINE Messaging API<br/>(Webhook & Push)"]
+        SupabaseCloud["☁️ Supabase Cloud<br/>(PostgreSQL DB + Storage)"]
+    end
+
+    subgraph WebApp ["🖥️ Next.js WebChat Application"]
+        Frontend["🎨 Frontend UI<br/>(TopNavbar, Sidebar, ChatCanvas)"]
+        Hooks["🧠 Logic Hooks<br/>(useChatMessages, useWebChatUsers)"]
+        BackendAPI["⚡ API Endpoints<br/>(/webhook, /messages, /users, /upload)"]
+        DualDB["💾 Dual-Engine Driver<br/>(db.ts & supabase.ts)"]
+    end
+
+    Customer <-->|รับ-ส่งข้อความ| LineGateway
+    LineGateway <-->|Webhook / Push| BackendAPI
+    Admin <-->|ใช้งานหน้าเว็บ| Frontend
+    Frontend <--> Hooks
+    Hooks <--> BackendAPI
+    BackendAPI <--> DualDB
+    DualDB <-->|Sync ข้อมูล & รูปภาพ| SupabaseCloud
 ```
 
 ---
 
-## 🧪 การทดสอบและความเสถียร (Testing & Quality)
+## 💾 ระบบฐานข้อมูลสองระบบ (Dual-Engine Database)
 
-โปรเจกต์มีชุดทดสอบอัตโนมัติครบทุกเลเยอร์ด้วย **Vitest** ผ่านการทดสอบทั้งหมด **53/53 Tests**:
-
-```bash
-$ npm test
-
- ✓ src/lib/__tests__/line.test.ts (10 tests)       # Signature verification & Profile fetching
- ✓ src/lib/__tests__/storage.test.ts (8 tests)     # Client caching & zero-latency sync
- ✓ src/lib/__tests__/db.test.ts (11 tests)         # JSON database operations & safety
- ✓ src/services/__tests__/services.test.ts (8 tests) # Service layer HTTP handling
- ✓ src/app/api/__tests__/routes.test.ts (16 tests) # Next.js Route Handlers & Webhooks
-
- Test Files  5 passed (5)
-      Tests  53 passed (53)
-```
-
-- **Production Build Verification**: ผ่านการ build ด้วย `npm run build` ไร้ Type Error หรือ Warning
+เพื่อความยืดหยุ่น ระบบรองรับการทำงาน 2 โหมดอัตโนมัติ:
+1. **Cloud Mode (Supabase PostgreSQL + Storage)**:
+   - เมื่อใส่คีย์ Supabase ใน `.env.local` ระบบจะเก็บข้อมูลบน Cloud ทันที
+   - ข้อมูลซิงค์ตรงกันทุกเครื่อง และรูปภาพจะถูกเก็บใน Storage Bucket `chat-attachments` อย่างถาวร
+2. **Local Fallback Mode (สำหรับ Development & Test)**:
+   - หากไม่ได้ใส่คีย์ Supabase ระบบจะสลับไปบันทึกลงไฟล์ `data/db.json` ในเครื่องให้เอง
+   - ทำให้สามารถรันเทสหรือเขียนโค้ดต่อได้แม้ไม่มีอินเทอร์เน็ต
 
 ---
 
-## 📦 วิธีการติดตั้งและรันในเครื่อง (Local Setup)
+## ✨ สรุปฟังก์ชันที่มีให้ใช้งาน
 
-### 1. โคลน Repository และติดตั้ง Dependencies
+- 💬 **แชทข้อความ**: รับ-ส่งข้อความภาษาไทยและภาษาอื่นๆ ได้สมบูรณ์
+- 🖼️ **รับ-ส่งรูปภาพ**: ลูกค้าส่งรูปมาทาง LINE หน้าเว็บจะแสดงรูปทันที / แอดมินสามารถกดปุ่มคลิป 📎 แนบรูป (เช่น สลิป, แคตตาล็อก) ส่งกลับไปหาลูกค้าได้ พร้อมมีกล่อง Lightbox คลิกดูรูปขยายใหญ่และดาวน์โหลดได้
+- 🏷️ **สติกเกอร์ LINE**: ดึงรูปสติกเกอร์จริงจาก LINE Sticker CDN มาแสดงในแชท และแอดมินมีถาดกดเลือกส่งสติกเกอร์ทางการได้ในคลิกเดียว
+- ⚡ **คำตอบด่วน (Quick Replies)**: มีปุ่มข้อความสำเร็จรูปให้กดส่งทันที และสามารถกดแก้ไข เพิ่ม หรือลบข้อความตอบด่วนเองได้ตามต้องการ
+- 🌓 **สลับธีม สว่าง / มืด**: มีปุ่มกดสลับโหมด Dark และ Light ได้ทันที โดยระบบจะจำค่าที่เลือกไว้ในเครื่องให้
+- 🗑️ **จัดการห้องแชท**: มีปุ่ม "ล้างข้อความ" (เคลียร์แชทแต่เก็บรายชื่อไว้) และปุ่ม "ลบห้องแชท" (ลบทั้งลูกค้าและประวัติ) พร้อมหน้าต่างกดยืนยันป้องกันการกดพลาด
 
+---
+
+## ⚙️ วิธีการติดตั้งและรันโปรเจกต์ในเครื่อง (Setup)
+
+### 1. โคลนโปรเจกต์และลงไลบรารี
 ```bash
 git clone https://github.com/Kittipattt/ROBOLINGO-webchat.git
 cd ROBOLINGO-webchat
 npm install
 ```
 
-### 2. กำหนดค่า Environment Variables
-
-สร้างไฟล์ `.env.local` ที่ Root Directory แล้วระบุคีย์ LINE OA:
+### 2. ตั้งค่าไฟล์ `.env.local`
+สร้างไฟล์ `.env.local` ไว้ที่โฟลเดอร์นอกสุดของโปรเจกต์ แล้วใส่ค่าเหล่านี้:
 
 ```env
+# ข้อมูล LINE Messaging API (เอามาจาก LINE Developers Console)
 LINE_CHANNEL_ID=2011444753
 LINE_CHANNEL_SECRET=a332359595bf165877cafd925c2f5ccf
-LINE_CHANNEL_ACCESS_TOKEN=<your_line_channel_access_token>
+LINE_CHANNEL_ACCESS_TOKEN=ใส่_Channel_Access_Token_ของคุณ
 
+# ข้อมูล LINE OA ทั่วไป
 NEXT_PUBLIC_LINE_OA_ID=@194rgooz
 NEXT_PUBLIC_LINE_OA_URL=https://line.me/R/ti/p/@194rgooz
+
+# ข้อมูล Supabase (สร้างฟรีได้ที่ supabase.com)
+NEXT_PUBLIC_SUPABASE_URL=https://xxxxxxxxxxxx.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=ใส่_Publishable_Key
+SUPABASE_SERVICE_ROLE_KEY=ใส่_Secret_Key
 ```
 
-### 3. เริ่มต้นรันเซิร์ฟเวอร์สำหรับ Development
+### 3. สร้างตารางใน Supabase (ทำครั้งเดียว)
+1. เข้า Supabase Dashboard ไปที่เมนู **SQL Editor**
+2. เปิดไฟล์ `supabase-schema.sql` ในโปรเจกต์นี้ ก๊อปปี้โค้ดทั้งหมดไปวางแล้วกด **Run**
+3. ระบบจะสร้างตาราง `users`, `messages`, `quick_replies` และสร้าง Bucket เก็บรูปภาพให้อัตโนมัติ
 
+### 4. รันโปรเจกต์
 ```bash
 npm run dev
 ```
+เปิดเว็บเบราว์เซอร์ไปที่: [http://localhost:3000](http://localhost:3000)
 
-เปิดเบราว์เซอร์ไปที่: [http://localhost:3000](http://localhost:3000)
+---
 
-### 4. รันทดสอบ Unit & Integration Tests
+## 🧪 การรันชุดทดสอบ (Automated Tests)
+
+โปรเจกต์มีชุดทดสอบครอบคลุมทุกส่วน ตั้งแต่ Webhook, การส่งข้อความ, Database, ไปจนถึงการตรวจจับข้อความซ้ำ:
 
 ```bash
 npm test
 ```
+*(ผ่านการทดสอบ 76/76 Tests)*
 
 ---
 
-## 🌐 การเชื่อมต่อ LINE Webhook ในเครื่อง (Local Tunneling)
+## 🚀 การ Deploy ขึ้นใช้งานจริง (Vercel)
 
-เนื่องจาก LINE Messaging API ต้องการส่ง Webhook มายัง HTTPS URL สาธารณะ ให้ใช้ `ngrok`:
-
-```bash
-npx ngrok http 3000
-```
-
-นำ Forwarding URL ที่ได้ (เช่น `https://xxxx-xx.ngrok-free.app`) ไปใส่ใน **[LINE Developers Console](https://developers.line.biz/)**:
-1. เข้าไปที่แท็บ **Messaging API**
-2. **Webhook URL**: `https://xxxx-xx.ngrok-free.app/api/line/webhook`
-3. กดปุ่ม **Verify** (ต้องขึ้นผลลัพธ์ว่า Success)
-4. เปิดสวิตช์ **Use webhook** เป็น **ON**
-
----
-
-## 🚀 การ Deploy บน Vercel
-
-1. Fork หรือ Push โค้ดเข้า GitHub ของคุณ
-2. นำ Repository ไป Import บน [Vercel Dashboard](https://vercel.com/)
-3. ในส่วน **Environment Variables** เพิ่มค่าที่จำเป็น:
-   - `LINE_CHANNEL_ID`
-   - `LINE_CHANNEL_SECRET`
-   - `LINE_CHANNEL_ACCESS_TOKEN`
-   - `NEXT_PUBLIC_LINE_OA_ID`
-   - `NEXT_PUBLIC_LINE_OA_URL`
-4. กด **Deploy**
-5. นำ Production Domain ที่ได้ไปตั้งค่า Webhook ใน LINE Developers Console:
-   - `https://<your-vercel-domain>.vercel.app/api/line/webhook`
-
----
-
-## 📱 ข้อมูลสำหรับการทดสอบ (Submission Deliverables)
-
-| รายการ | ข้อมูล / ลิงก์ |
-| :--- | :--- |
-| **LINE Official Account** | [`@194rgooz`](https://line.me/R/ti/p/@194rgooz) |
-| **ลิงก์แอดไลน์ทดสอบ** | [https://line.me/R/ti/p/@194rgooz](https://line.me/R/ti/p/@194rgooz) |
-| **GitHub Repository** | [https://github.com/Kittipattt/ROBOLINGO-webchat](https://github.com/Kittipattt/ROBOLINGO-webchat) |
-
----
-
-<div align="center">
-  <sub>พัฒนาด้วยความใส่ใจในรายละเอียด โดย Kittipattt • Powered by Next.js & LINE Messaging API</sub>
-</div>
+1. Push โค้ดเข้า GitHub
+2. นำโปรเจกต์ไปเปิดบน **Vercel**
+3. ไปที่ **Settings** -> **Environment Variables** แล้วใส่ตัวแปรทั้งหมดจากข้อ 2 เข้าไป
+4. เมื่อ Deploy เสร็จ นำ URL ที่ได้ (เช่น `https://your-domain.vercel.app/api/line/webhook`) ไปกรอกในช่อง **Webhook URL** บน [LINE Developers Console](https://developers.line.biz/) แล้วเปิดสวิตช์ **Use webhook** เป็น **ON** เป็นอันเสร็จสิ้นครับ!
