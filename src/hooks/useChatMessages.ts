@@ -17,6 +17,51 @@ interface UseChatMessagesOptions {
   pollingIntervalMs?: number;
 }
 
+/**
+ * Robust helper to deduplicate messages and prevent optimistic temp messages
+ * from showing alongside the real server messages.
+ */
+function deduplicateMessages(messages: ChatMessage[]): ChatMessage[] {
+  const sorted = [...messages].sort((a, b) => a.createdAt - b.createdAt);
+  const result: ChatMessage[] = [];
+  const seenIds = new Set<string>();
+
+  for (const item of sorted) {
+    // Drop true ID duplicates
+    if (seenIds.has(item.id)) continue;
+
+    // If this is a temporary or synthetic message, check if an official server message already exists
+    const isTemporary =
+      item.id.startsWith('temp_') || item.id.includes('_sync') || item.id.includes('_sel');
+
+    if (isTemporary) {
+      const hasOfficial = sorted.some(
+        (other) =>
+          !other.id.startsWith('temp_') &&
+          !other.id.includes('_sync') &&
+          !other.id.includes('_sel') &&
+          other.sender === item.sender &&
+          ((item.messageType === 'sticker' &&
+            other.messageType === 'sticker' &&
+            item.stickerId === other.stickerId) ||
+            (item.messageType === 'image' && other.messageType === 'image') ||
+            other.text === item.text) &&
+          Math.abs(other.createdAt - item.createdAt) < 20000
+      );
+
+      if (hasOfficial) {
+        // Official server message is already present, drop this temporary duplicate!
+        continue;
+      }
+    }
+
+    seenIds.add(item.id);
+    result.push(item);
+  }
+
+  return result;
+}
+
 export function useChatMessages(options: UseChatMessagesOptions = {}) {
   const {
     selectedUserId,
@@ -35,10 +80,11 @@ export function useChatMessages(options: UseChatMessagesOptions = {}) {
     selectedUserIdRef.current = selectedUserId;
   }, [selectedUserId]);
 
-  // Messages strictly filtered for currently selected user
+  // Messages strictly filtered for currently selected user with deduplication
   const activeMessages = useMemo(() => {
     if (!selectedUserId) return [];
-    return (messagesByUserId[selectedUserId] || []).filter((m) => m.userId === selectedUserId);
+    const raw = (messagesByUserId[selectedUserId] || []).filter((m) => m.userId === selectedUserId);
+    return deduplicateMessages(raw);
   }, [selectedUserId, messagesByUserId]);
 
   // Fetch messages from server with caching, deduplication and sound triggers
@@ -57,32 +103,15 @@ export function useChatMessages(options: UseChatMessagesOptions = {}) {
             return prevMap;
           }
 
-          // Merge cached + in-memory + incoming messages
-          const map = new Map<string, ChatMessage>();
-          cachedForUser.forEach((m) => map.set(m.id, m));
-          prevForUser.forEach((m) => map.set(m.id, m));
-          incoming.forEach((m) => map.set(m.id, m));
+          // Retain only currently pending optimistic messages that haven't arrived on server yet
+          const pendingOptimistic = prevForUser.filter(
+            (m) => m.id.startsWith('temp_') && m.status === 'sending'
+          );
 
-          // Clean up synthetic messages that now have official server messages
-          const allItems = Array.from(map.values()).sort((a, b) => a.createdAt - b.createdAt);
-          const deduplicated: ChatMessage[] = [];
-          for (const item of allItems) {
-            if (item.id.includes('_sync') || item.id.includes('_sel')) {
-              const hasOfficial = allItems.some(
-                (other) =>
-                  !other.id.includes('_sync') &&
-                  !other.id.includes('_sel') &&
-                  other.text === item.text &&
-                  Math.abs(other.createdAt - item.createdAt) < 5000
-              );
-              if (hasOfficial) {
-                continue;
-              }
-            }
-            deduplicated.push(item);
-          }
+          // Merge incoming official messages with any still-sending optimistic messages
+          const combined = [...incoming, ...pendingOptimistic];
+          const merged = deduplicateMessages(combined);
 
-          const merged = deduplicated;
           if (merged.length === 0) return prevMap;
 
           // Trigger sound if genuinely new message from user arrived
@@ -140,7 +169,7 @@ export function useChatMessages(options: UseChatMessagesOptions = {}) {
             createdAt: timestamp,
             status: 'sent',
           };
-          const updated = [...list, synMsg].sort((a, b) => a.createdAt - b.createdAt);
+          const updated = deduplicateMessages([...list, synMsg]);
           storage.setCachedMessages(userId, updated);
           return {
             ...prevMap,
@@ -216,13 +245,22 @@ export function useChatMessages(options: UseChatMessagesOptions = {}) {
 
         setMessagesByUserId((prevMap) => {
           const userMsgs = prevMap[targetUserId] || [];
-          const updated = userMsgs.map((m) =>
-            m.id === tempId ? serverMsg || { ...m, status: 'sent' } : m
-          );
-          storage.setCachedMessages(targetUserId, updated);
+          const hasServerMsg = serverMsg && userMsgs.some((m) => m.id === serverMsg.id);
+
+          let updated: ChatMessage[];
+          if (hasServerMsg) {
+            updated = userMsgs.filter((m) => m.id !== tempId);
+          } else {
+            updated = userMsgs.map((m) =>
+              m.id === tempId ? serverMsg || { ...m, status: 'sent' } : m
+            );
+          }
+
+          const finalUpdated = deduplicateMessages(updated);
+          storage.setCachedMessages(targetUserId, finalUpdated);
           return {
             ...prevMap,
-            [targetUserId]: updated,
+            [targetUserId]: finalUpdated,
           };
         });
 
@@ -295,13 +333,24 @@ export function useChatMessages(options: UseChatMessagesOptions = {}) {
 
         setMessagesByUserId((prevMap) => {
           const userMsgs = prevMap[targetUserId] || [];
-          const updated = userMsgs.map((m) =>
-            m.id === tempId ? serverMsg || { ...m, status: 'sent', imageUrl: serverImageUrl } : m
-          );
-          storage.setCachedMessages(targetUserId, updated);
+          const hasServerMsg = serverMsg && userMsgs.some((m) => m.id === serverMsg.id);
+
+          let updated: ChatMessage[];
+          if (hasServerMsg) {
+            updated = userMsgs.filter((m) => m.id !== tempId);
+          } else {
+            updated = userMsgs.map((m) =>
+              m.id === tempId
+                ? serverMsg || { ...m, status: 'sent', imageUrl: serverImageUrl }
+                : m
+            );
+          }
+
+          const finalUpdated = deduplicateMessages(updated);
+          storage.setCachedMessages(targetUserId, finalUpdated);
           return {
             ...prevMap,
-            [targetUserId]: updated,
+            [targetUserId]: finalUpdated,
           };
         });
 
@@ -371,13 +420,22 @@ export function useChatMessages(options: UseChatMessagesOptions = {}) {
 
         setMessagesByUserId((prevMap) => {
           const userMsgs = prevMap[targetUserId] || [];
-          const updated = userMsgs.map((m) =>
-            m.id === tempId ? serverMsg || { ...m, status: 'sent', stickerUrl } : m
-          );
-          storage.setCachedMessages(targetUserId, updated);
+          const hasServerMsg = serverMsg && userMsgs.some((m) => m.id === serverMsg.id);
+
+          let updated: ChatMessage[];
+          if (hasServerMsg) {
+            updated = userMsgs.filter((m) => m.id !== tempId);
+          } else {
+            updated = userMsgs.map((m) =>
+              m.id === tempId ? serverMsg || { ...m, status: 'sent', stickerUrl } : m
+            );
+          }
+
+          const finalUpdated = deduplicateMessages(updated);
+          storage.setCachedMessages(targetUserId, finalUpdated);
           return {
             ...prevMap,
-            [targetUserId]: updated,
+            [targetUserId]: finalUpdated,
           };
         });
 
@@ -425,9 +483,47 @@ export function useChatMessages(options: UseChatMessagesOptions = {}) {
     storage.removeCachedMessages(userId);
   }, []);
 
+  // Optimistically set active messages directly when selecting user
+  const setActiveMessagesOptimistically = useCallback(
+    (userId: string, initialMessage?: { text: string; timestamp: number; sender?: 'user' | 'agent' }) => {
+      if (!userId) return;
+
+      setMessagesByUserId((prev) => {
+        const existing = prev[userId] || [];
+        if (existing.length > 0) return prev;
+
+        const cached = storage.getCachedMessages(userId);
+        if (cached.length > 0) {
+          return {
+            ...prev,
+            [userId]: cached,
+          };
+        }
+
+        if (initialMessage && initialMessage.text) {
+          const initialChat: ChatMessage = {
+            id: `msg_${initialMessage.timestamp}_sel`,
+            userId,
+            sender: initialMessage.sender || 'user',
+            text: initialMessage.text,
+            createdAt: initialMessage.timestamp,
+            status: 'sent',
+          };
+          return {
+            ...prev,
+            [userId]: [initialChat],
+          };
+        }
+
+        return prev;
+      });
+    },
+    []
+  );
+
   return {
-    messagesByUserId,
     activeMessages,
+    messages: activeMessages,
     isSending,
     sendMessage,
     sendImageMessage,
@@ -436,5 +532,6 @@ export function useChatMessages(options: UseChatMessagesOptions = {}) {
     removeUserMessagesLocally,
     fetchMessagesForUser,
     syncIncomingUserMessage,
+    setActiveMessagesOptimistically,
   };
 }
