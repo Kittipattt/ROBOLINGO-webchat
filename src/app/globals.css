@@ -280,6 +280,30 @@ html, body {
   text-transform: uppercase;
 }
 
+.brand-subtitle-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.top-navbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.top-navbar-icon-btn {
+  padding: 9px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
 /* Three-Column Workspace Layout */
 .workspace-grid {
   display: flex;
@@ -1013,48 +1037,71 @@ html, body {
 
   /* Compact Top Navbar */
   .top-navbar {
-    height: 56px;
-    padding: 0 12px;
+    height: 52px;
+    padding: 0 10px;
+    gap: 8px;
   }
 
   .brand-section {
-    gap: 10px;
+    gap: 8px;
+    min-width: 0;
+    flex-shrink: 1;
   }
 
   .brand-icon {
-    width: 34px;
-    height: 34px;
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
   }
 
   .brand-title {
-    font-size: 15.5px;
+    font-size: 15px;
+    white-space: nowrap;
   }
 
   .brand-badge {
-    display: none;
+    display: none !important;
   }
 
   .brand-subtitle-row {
-    display: none;
+    display: none !important;
   }
 
   .navbar-btn-text {
-    display: none;
+    display: none !important;
   }
 
   .top-navbar-actions {
+    display: flex;
+    align-items: center;
     gap: 6px;
+    flex-shrink: 0;
   }
 
   .top-navbar-actions button {
-    padding: 8px !important;
+    width: 34px !important;
+    height: 34px !important;
+    min-width: 34px !important;
+    padding: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    border-radius: var(--radius-sm) !important;
+  }
+
+  .top-navbar-actions .shimmer-green-btn {
+    width: 34px !important;
+    height: 34px !important;
+    min-width: 34px !important;
+    padding: 0 !important;
+    gap: 0 !important;
   }
 
   /* Master-Detail Navigation */
   .workspace-grid {
     position: relative;
     width: 100%;
-    height: calc(100dvh - 56px);
+    height: calc(100dvh - 52px);
   }
 
   /* View 1: List Mode - Show Sidebar Fullscreen */

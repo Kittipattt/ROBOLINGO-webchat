@@ -34,16 +34,7 @@ export function TopNavbar({
             <span className="brand-title">ROBO LINGO</span>
             <span className="brand-badge">Live Chat Console</span>
           </div>
-          <div
-            className="brand-subtitle-row"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 7,
-              fontSize: 12,
-              color: 'var(--text-muted)',
-            }}
-          >
+          <div className="brand-subtitle-row">
             <span
               style={{
                 width: 7,
@@ -65,7 +56,7 @@ export function TopNavbar({
       </div>
 
       {/* Global Actions */}
-      <div className="top-navbar-actions" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+      <div className="top-navbar-actions">
         {/* QR Code / Add LINE button */}
         <button
           className="shimmer-green-btn"
@@ -79,16 +70,11 @@ export function TopNavbar({
         {/* Sound Toggle */}
         <button
           onClick={onToggleSound}
+          className="top-navbar-icon-btn"
           style={{
             background: soundEnabled ? 'rgba(6, 199, 85, 0.12)' : 'rgba(255, 255, 255, 0.04)',
             border: `1px solid ${soundEnabled ? 'rgba(6, 199, 85, 0.3)' : 'var(--border-subtle)'}`,
             color: soundEnabled ? 'var(--line-green)' : 'var(--text-muted)',
-            padding: '9px',
-            borderRadius: 'var(--radius-sm)',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            transition: 'all 0.2s',
           }}
           title={soundEnabled ? 'เปิดเสียงแจ้งเตือนแล้ว' : 'ปิดเสียงแจ้งเตือน'}
         >
@@ -98,17 +84,11 @@ export function TopNavbar({
         {/* Theme Quick Switcher */}
         <button
           onClick={onToggleTheme}
+          className="top-navbar-icon-btn"
           style={{
             background: theme === 'light' ? 'rgba(245, 158, 11, 0.12)' : 'rgba(255, 255, 255, 0.04)',
             border: `1px solid ${theme === 'light' ? 'rgba(245, 158, 11, 0.35)' : 'var(--border-subtle)'}`,
             color: theme === 'light' ? '#D97706' : '#FCD34D',
-            padding: '9px',
-            borderRadius: 'var(--radius-sm)',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            transition: 'all 0.2s',
           }}
           title={theme === 'dark' ? 'สลับเป็นโหมดสว่าง (Light Mode)' : 'สลับเป็นโหมดมืด (Dark Mode)'}
         >
@@ -119,13 +99,11 @@ export function TopNavbar({
         <button
           onClick={onRefresh}
           disabled={isRefreshing}
+          className="top-navbar-icon-btn"
           style={{
             background: 'rgba(255, 255, 255, 0.04)',
             border: '1px solid var(--border-subtle)',
             color: 'var(--text-secondary)',
-            padding: '9px',
-            borderRadius: 'var(--radius-sm)',
-            cursor: 'pointer',
           }}
           title="รีเฟรชข้อมูลล่าสุด"
         >
