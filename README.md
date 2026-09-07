@@ -53,8 +53,49 @@ src/
 
 ---
 
-## 🔄 ข้อมูลวิ่งอย่างไร (Data Flow)
+## 🔄 ข้อมูลวิ่งอย่างไร (Data Flow & Sequence Diagram)
 
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Customer as 👤 ลูกค้า (LINE App)
+    participant LineAPI as 🟢 LINE Platform
+    participant Webhook as ⚡ Webhook Handler (/api/line/webhook)
+    participant Supabase as ☁️ Supabase (PostgreSQL & Storage)
+    participant WebChat as 🖥️ WebChat Console
+    actor Admin as 👨‍💼 แอดมิน (Agent)
+
+    %% กรณีที่ 1: ลูกค้าส่งข้อความเข้ามา
+    rect rgb(240, 253, 244)
+    Note over Customer, WebChat: 📥 กรณีที่ 1: ลูกค้าทักแชท / ส่งรูป / ส่งสติกเกอร์
+    Customer->>LineAPI: ส่งข้อความ, รูปภาพ หรือสติกเกอร์
+    LineAPI->>Webhook: ส่ง Event (POST พร้อม x-line-signature)
+    Webhook->>Webhook: ตรวจสอบ HMAC-SHA256 Signature
+    opt หากเป็นรูปภาพ
+        Webhook->>LineAPI: ดาวน์โหลดไฟล์ภาพผ่าน LINE Content API
+        Webhook->>Supabase: อัปโหลดรูปขึ้น Cloud Storage (chat-attachments)
+    end
+    Webhook->>Supabase: บันทึกข้อความ & อัปเดตโปรไฟล์ลูกค้าลง Database
+    WebChat->>Supabase: ดึงข้อมูลข้อความล่าสุดมาแสดง
+    WebChat-->>Admin: ข้อความเด้งขึ้นหน้าจอแชททันที พร้อมเสียงแจ้งเตือน 🔔
+    end
+
+    %% กรณีที่ 2: แอดมินตอบกลับหาลูกค้า
+    rect rgb(239, 246, 255)
+    Note over Admin, Customer: 📤 กรณีที่ 2: แอดมินตอบกลับ / แนบรูปภาพ / ส่งสติกเกอร์
+    Admin->>WebChat: พิมพ์ข้อความ / เลือกคำตอบด่วน / แนบรูป
+    opt หากแนบรูปภาพ
+        WebChat->>Supabase: อัปโหลดรูปผ่าน /api/upload ขึ้น Cloud Storage
+    end
+    WebChat->>WebChat: แสดงข้อความบนจอทันที (Optimistic Update)
+    WebChat->>Webhook: ส่งข้อความไปที่ /api/messages
+    Webhook->>LineAPI: ยิงคำสั่ง LINE Push Message API
+    Webhook->>Supabase: บันทึกข้อความฝั่งแอดมินลง Database
+    LineAPI->>Customer: ข้อความเด้งเข้าแอป LINE ของลูกค้าในทันที 📲
+    end
+```
+
+### สรุปขั้นตอนการทำงาน:
 1. **ฝั่งลูกค้ารับ-ส่งข้อความ**:
    - ลูกค้าพิมพ์ข้อความในแอป LINE ➡️ LINE Platform ยิง Webhook มาที่ `/api/line/webhook`
    - ระบบตรวจเช็คความถูกต้องของ Signature (`x-line-signature`) เพื่อความปลอดภัย
@@ -64,6 +105,38 @@ src/
    - แอดมินพิมพ์ข้อความ แนบรูป หรือกดคำตอบด่วน ➡️ หน้าเว็บส่งไปที่ `/api/messages`
    - ระบบสั่ง LINE Messaging API ให้ Push ข้อความเข้ามือถือลูกค้าทันที
    - บันทึกข้อความของแอดมินลง Supabase เพื่อเก็บเป็นประวัติ
+
+---
+
+## 🏛️ แผนผังโครงสร้างระบบ (System Architecture Diagram)
+
+```mermaid
+graph LR
+    subgraph Users ["👥 ผู้ใช้งาน"]
+        Customer["👤 ลูกค้า<br/>(LINE App บนมือถือ)"]
+        Admin["👨‍💼 แอดมิน<br/>(Web Browser)"]
+    end
+
+    subgraph External ["🌐 บริการภายนอก"]
+        LineGateway["🟢 LINE Messaging API<br/>(Webhook & Push)"]
+        SupabaseCloud["☁️ Supabase Cloud<br/>(PostgreSQL DB + Storage)"]
+    end
+
+    subgraph WebApp ["🖥️ Next.js WebChat Application"]
+        Frontend["🎨 Frontend UI<br/>(TopNavbar, Sidebar, ChatCanvas)"]
+        Hooks["🧠 Logic Hooks<br/>(useChatMessages, useWebChatUsers)"]
+        BackendAPI["⚡ API Endpoints<br/>(/webhook, /messages, /users, /upload)"]
+        DualDB["💾 Dual-Engine Driver<br/>(db.ts & supabase.ts)"]
+    end
+
+    Customer <-->|รับ-ส่งข้อความ| LineGateway
+    LineGateway <-->|Webhook / Push| BackendAPI
+    Admin <-->|ใช้งานหน้าเว็บ| Frontend
+    Frontend <--> Hooks
+    Hooks <--> BackendAPI
+    BackendAPI <--> DualDB
+    DualDB <-->|Sync ข้อมูล & รูปภาพ| SupabaseCloud
+```
 
 ---
 
