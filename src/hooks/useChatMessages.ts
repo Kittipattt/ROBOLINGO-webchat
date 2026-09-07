@@ -77,6 +77,7 @@ export function useChatMessages(options: UseChatMessagesOptions = {}) {
 
   const [messagesByUserId, setMessagesByUserId] = useState<Record<string, ChatMessage[]>>({});
   const [isSending, setIsSending] = useState(false);
+  const isSendingRef = useRef(false);
 
   const selectedUserIdRef = useRef<string | undefined>(selectedUserId);
   const lastMessageCountRef = useRef<number>(0);
@@ -224,8 +225,9 @@ export function useChatMessages(options: UseChatMessagesOptions = {}) {
     async (text: string): Promise<boolean> => {
       const trimmed = text.trim();
       const targetUserId = selectedUserIdRef.current;
-      if (!trimmed || !targetUserId || isSending) return false;
+      if (!trimmed || !targetUserId || isSendingRef.current || isSending) return false;
 
+      isSendingRef.current = true;
       setIsSending(true);
       const tempId = `temp_${Date.now()}`;
       const now = Date.now();
@@ -287,6 +289,7 @@ export function useChatMessages(options: UseChatMessagesOptions = {}) {
         alert(`เกิดข้อผิดพลาดในการส่งข้อความ: ${err?.message || 'Server error'}`);
         return false;
       } finally {
+        isSendingRef.current = false;
         setIsSending(false);
       }
     },
@@ -297,8 +300,9 @@ export function useChatMessages(options: UseChatMessagesOptions = {}) {
   const sendImageMessage = useCallback(
     async (file: File, caption?: string): Promise<boolean> => {
       const targetUserId = selectedUserIdRef.current;
-      if (!file || !targetUserId || isSending) return false;
+      if (!file || !targetUserId || isSendingRef.current || isSending) return false;
 
+      isSendingRef.current = true;
       setIsSending(true);
       const tempId = `temp_img_${Date.now()}`;
       const now = Date.now();
@@ -377,6 +381,7 @@ export function useChatMessages(options: UseChatMessagesOptions = {}) {
         alert(`เกิดข้อผิดพลาดในการส่งรูปภาพ: ${err?.message || 'Server error'}`);
         return false;
       } finally {
+        isSendingRef.current = false;
         setIsSending(false);
       }
     },
@@ -387,8 +392,9 @@ export function useChatMessages(options: UseChatMessagesOptions = {}) {
   const sendStickerMessage = useCallback(
     async (packageId: string, stickerId: string): Promise<boolean> => {
       const targetUserId = selectedUserIdRef.current;
-      if (!packageId || !stickerId || !targetUserId || isSending) return false;
+      if (!packageId || !stickerId || !targetUserId || isSendingRef.current || isSending) return false;
 
+      isSendingRef.current = true;
       setIsSending(true);
       const tempId = `temp_stk_${Date.now()}`;
       const now = Date.now();
@@ -462,6 +468,7 @@ export function useChatMessages(options: UseChatMessagesOptions = {}) {
         alert(`เกิดข้อผิดพลาดในการส่งสติกเกอร์: ${err?.message || 'Server error'}`);
         return false;
       } finally {
+        isSendingRef.current = false;
         setIsSending(false);
       }
     },
